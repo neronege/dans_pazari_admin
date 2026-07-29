@@ -194,49 +194,47 @@ Soft delete. Alt kategorilerin `parentCategoryId` null yapılır (kök olur).
 
 ## Venues (`/admin/venues`)
 
+Fotoğraflar JSON gövdede değil; create/update **multipart/form-data**. Alanlar form field, görseller `Photos` dosya listesi (aynı isimle birden fazla file). Optimize → WebP → R2 (`venues/{venueId}/photos/...`). İstek üst limiti 20 MB; dosya başı max 8 MB; istek başına max 20 fotoğraf.
+
 ### `GET /admin/venues`
 
-Admin liste — aktif + pasif. Query: `city`, `search`.
+Admin liste — aktif + pasif. Query: `city`, `search`. Özet DTO’da `coverImageUrl` (ilk fotoğraf, varsa).
 
 ### `GET /admin/venues/{id}`
 
-Admin detay (pasif dahil).
+Admin detay (pasif dahil) — `photos[]`: `id`, `imageKey`, `imageUrl`, `sortOrder`.
 
 ### `POST /admin/venues`
 
-```json
-{
-  "name": "İstanbul Kongre Merkezi",
-  "slug": null,
-  "city": "İstanbul",
-  "district": "Harbiye",
-  "address": "Harbiye, Darülbedai Cd. No:3",
-  "latitude": null,
-  "longitude": null,
-  "description": "Merkez salon",
-  "capacity": 5000,
-  "isActive": true
-}
-```
+`Content-Type: multipart/form-data`
 
 | Alan | Tip | Zorunlu | Not |
 |------|-----|---------|-----|
 | name | string | evet | max 200 |
-| slug | string \| null | hayır | boşsa isimden üretilir |
+| slug | string | hayır | boşsa isimden üretilir |
 | city | string | evet | max 100 |
 | address | string | evet | |
-| district | string \| null | hayır | max 100 |
-| latitude | number \| null | hayır | -90 … 90 |
-| longitude | number \| null | hayır | -180 … 180 |
-| description | string \| null | hayır | |
-| capacity | int \| null | hayır | > 0 |
-| isActive | bool \| null | hayır | default true |
+| district | string | hayır | max 100 |
+| latitude | number | hayır | -90 … 90 |
+| longitude | number | hayır | -180 … 180 |
+| description | string | hayır | |
+| capacity | int | hayır | > 0 |
+| isActive | bool | hayır | default true |
+| Photos | file[] | hayır | jpeg/png/webp/gif; liste halinde |
 
-**Response `201 Created`** — detay DTO.
+**Response `201 Created`** — detay DTO (`photos` dahil).
 
 ### `PUT /admin/venues/{id}`
 
-Güncelleme (tüm alanlar).
+`multipart/form-data` — aynı alanlar. `Photos` **verilmezse** mevcut galeri korunur; verilirse listeye **eklenir** (replace değil).
+
+### `POST /admin/venues/{id}/photos`
+
+Yalnızca ek fotoğraf. Form: `Photos` (en az 1 dosya).
+
+### `DELETE /admin/venues/{id}/photos/{photoId}`
+
+Tek fotoğraf soft-delete + R2 best-effort silme. Response: güncel detay DTO.
 
 ### `PATCH /admin/venues/{id}/active`
 
@@ -267,8 +265,12 @@ Draft dahil tüm status’ler. Inactive bilet tipleri de görünür.
 | PATCH | `/admin/events/{id}/cancel` | İptal |
 | PATCH | `/admin/events/{id}/featured` | Body: `{ "isFeatured": true }` |
 | DELETE | `/admin/events/{id}` | Soft-delete |
-| POST | `/admin/events/{id}/cover` | Multipart `file` — SkiaSharp optimize (WebP) → Cloudflare Worker R2 |
-| DELETE | `/admin/events/{id}/cover` | Kapak sil |
+| POST | `/admin/events/{id}/photos` | Multipart `Photos[]` — galeriye ekler (jpeg/png/webp/gif, max 8 MB/dosya, max 20). İlk foto → `coverImageUrl` |
+| DELETE | `/admin/events/{id}/photos/{photoId}` | Galeriden tek foto sil |
+| POST | `/admin/events/{id}/banner` | Multipart `file` — anasayfa banner (geniş format). Key: `events/{id}/banner/...` |
+| DELETE | `/admin/events/{id}/banner` | Banner sil |
+| POST | `/admin/events/{id}/cover` | **Eski alias** — tek `file` → galeriye ekler |
+| DELETE | `/admin/events/{id}/cover` | **Eski alias** — tüm galeriyi temizler |
 | POST | `/admin/events/{eventId}/sessions` | Body: `startsAtUtc`, `endsAtUtc`, `doorOpensNote?` |
 | PUT | `/admin/events/{eventId}/sessions/{sessionId}` | Seans düzenle |
 | PATCH | `/admin/events/{eventId}/sessions/{sessionId}/cancel` | Seans iptal |
@@ -403,6 +405,7 @@ Tekil talep detayı.
 
 ## Blog (`/admin/blog`)
 
+
 Bearer + AdminOnly. JSON camelCase. Status: `Draft` | `Published` | `Archived`.
 
 ### Categories (`/admin/blog/categories`)
@@ -439,6 +442,22 @@ Bearer + AdminOnly. JSON camelCase. Status: `Draft` | `Published` | `Archived`.
 | DELETE | `/admin/blog/posts/{id}/cover` | Kapak sil |
 
 **Kapak yükleme (R2):** Events ile aynı `WorkerR2Storage` akışı. Key: `StorageKeyConventions.BlogCover`.
+
+---
+
+## Legal (`/admin/legal`)
+
+Sabit slug’lı yasal sayfalar (soft delete yok; unpublish). Slug seti: `kvkk`, `cerez-politikasi`, `kullanim-kosullari`, `mesafeli-satis`.
+
+| Method | Path | Açıklama |
+|--------|------|----------|
+| GET | `/admin/legal` | 4 sabit slug özeti (kayıt yoksa placeholder title, `isPublished=false`) |
+| GET | `/admin/legal/{slug}` | Detay; henüz kaydedilmemişse boş taslak (`id` = empty guid) |
+| PUT | `/admin/legal/{slug}` | Upsert — body: `{ "title", "bodyHtml" }` |
+| PATCH | `/admin/legal/{slug}/publish` | Yayınla (`publishedAtUtc` ilk seferde set) |
+| PATCH | `/admin/legal/{slug}/unpublish` | Yayından kaldır (içerik kalır) |
+
+Bilinmeyen slug → `400` (`legal_slug_unknown`).
 
 ---
 

@@ -29,7 +29,9 @@ import {
   createEventSession,
   createEvent,
   createTicketType,
+  deleteEventBanner,
   deleteEventCover,
+  deleteEventPhoto,
   deleteEventSession,
   deleteEvent,
   deleteTicketType,
@@ -39,6 +41,8 @@ import {
   updateEventSession,
   updateTicketType,
   uploadEventCover,
+  uploadEventBanner,
+  uploadEventPhotos,
   setEventFeatured,
   unpublishEvent,
   updateEvent
@@ -103,7 +107,14 @@ export default function EventsPage() {
   const [opsEventTitle, setOpsEventTitle] = useState('');
   const [opsSessions, setOpsSessions] = useState([]);
   const [coverTargetEventId, setCoverTargetEventId] = useState(null);
+  const [bannerTargetEventId, setBannerTargetEventId] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [bannerFile, setBannerFile] = useState(null);
+  const [galleryFiles, setGalleryFiles] = useState([]);
+  const [existingPhotos, setExistingPhotos] = useState([]);
+  const [existingBannerUrl, setExistingBannerUrl] = useState('');
   const fileInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
 
   const { events, isLoading, error, refresh } = useEvents({ search, city, status, categoryId });
   const { venues } = useVenues({});
@@ -117,6 +128,11 @@ export default function EventsPage() {
   const openCreateDialog = () => {
     setEditingId(null);
     setForm(initialForm);
+    setCoverFile(null);
+    setBannerFile(null);
+    setGalleryFiles([]);
+    setExistingPhotos([]);
+    setExistingBannerUrl('');
     setActionError('');
     setDialogOpen(true);
   };
@@ -138,9 +154,28 @@ export default function EventsPage() {
         metaTitle: detail?.metaTitle || '',
         metaDescription: detail?.metaDescription || ''
       });
+      setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
+      setExistingBannerUrl(detail?.bannerImageUrl || '');
+      setCoverFile(null);
+      setBannerFile(null);
+      setGalleryFiles([]);
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    }
+  };
+
+  const uploadSelectedMedia = async (eventId) => {
+    if (coverFile) {
+      await uploadEventCover(eventId, coverFile);
+    }
+
+    if (galleryFiles.length > 0) {
+      await uploadEventPhotos(eventId, galleryFiles);
+    }
+
+    if (bannerFile) {
+      await uploadEventBanner(eventId, bannerFile);
     }
   };
 
@@ -161,13 +196,27 @@ export default function EventsPage() {
     };
 
     try {
+      let targetEventId = editingId;
+
       if (editingId) {
         await updateEvent(editingId, payload);
       } else {
-        await createEvent(payload);
+        const created = await createEvent(payload);
+        targetEventId = created?.id || created?.eventId || null;
+        if (!targetEventId) {
+          throw new Error('Etkinlik olusturuldu ancak event id alinamadi.');
+        }
+        setEditingId(targetEventId);
       }
 
+      await uploadSelectedMedia(targetEventId);
+
       setDialogOpen(false);
+      setCoverFile(null);
+      setBannerFile(null);
+      setGalleryFiles([]);
+      setExistingPhotos([]);
+      setExistingBannerUrl('');
       await refresh();
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -268,6 +317,11 @@ export default function EventsPage() {
     fileInputRef.current?.click();
   };
 
+  const requestBannerUpload = (eventId) => {
+    setBannerTargetEventId(eventId);
+    bannerInputRef.current?.click();
+  };
+
   const onCoverFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file || !coverTargetEventId) {
@@ -304,6 +358,62 @@ export default function EventsPage() {
       if (opsDialogOpen && opsEventId === eventId) {
         await reloadOperations(eventId);
       }
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    }
+  };
+
+  const onBannerFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !bannerTargetEventId) {
+      return;
+    }
+
+    try {
+      setActionError('');
+      await uploadEventBanner(bannerTargetEventId, file);
+      await refresh();
+
+      if (opsDialogOpen && opsEventId === bannerTargetEventId) {
+        await reloadOperations(bannerTargetEventId);
+      }
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    } finally {
+      event.target.value = '';
+      setBannerTargetEventId(null);
+    }
+  };
+
+  const onBannerDelete = async (eventId) => {
+    const confirmed = window.confirm('Etkinlik banner görselini silmek istiyor musunuz?');
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionError('');
+      await deleteEventBanner(eventId);
+      await refresh();
+
+      if (opsDialogOpen && opsEventId === eventId) {
+        await reloadOperations(eventId);
+      }
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    }
+  };
+
+  const onDeletePhoto = async (photoId) => {
+    if (!editingId) {
+      return;
+    }
+
+    try {
+      setActionError('');
+      await deleteEventPhoto(editingId, photoId);
+      setExistingPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+      await refresh();
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
     }
@@ -534,6 +644,7 @@ export default function EventsPage() {
   return (
     <>
       <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onCoverFileChange} />
+      <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={onBannerFileChange} />
 
       <MainCard
         title="Etkinlik Yönetimi"
@@ -633,6 +744,12 @@ export default function EventsPage() {
                         <Button size="small" onClick={() => onCoverDelete(event.id)}>
                           Kapak Sil
                         </Button>
+                        <Button size="small" onClick={() => requestBannerUpload(event.id)}>
+                          Banner Yükle
+                        </Button>
+                        <Button size="small" onClick={() => onBannerDelete(event.id)}>
+                          Banner Sil
+                        </Button>
                         <Button size="small" onClick={() => openOperations(event.id)}>
                           Seanslar
                         </Button>
@@ -725,6 +842,80 @@ export default function EventsPage() {
               multiline
               minRows={2}
             />
+            <Stack sx={{ gap: 1 }}>
+              <Typography variant="subtitle2">Kapak Görseli (opsiyonel)</Typography>
+              <Button variant="outlined" component="label">
+                {coverFile ? `Seçildi: ${coverFile.name}` : 'Kapak Seç'}
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setCoverFile(file);
+                    event.target.value = '';
+                  }}
+                />
+              </Button>
+            </Stack>
+            <Stack sx={{ gap: 1 }}>
+              <Typography variant="subtitle2">Galeri Fotoğrafları (opsiyonel)</Typography>
+              <Button variant="outlined" component="label">
+                Galeri Fotoğrafı Seç
+                <input
+                  type="file"
+                  hidden
+                  multiple
+                  accept="image/*"
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files || []);
+                    setGalleryFiles(files);
+                    event.target.value = '';
+                  }}
+                />
+              </Button>
+              {galleryFiles.length > 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {galleryFiles.length} dosya seçildi.
+                </Typography>
+              )}
+              {editingId && existingPhotos.length > 0 && (
+                <Stack sx={{ gap: 1 }}>
+                  <Typography variant="body2">Mevcut Galeri</Typography>
+                  {existingPhotos.map((photo) => (
+                    <Stack key={photo.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">
+                        #{photo.sortOrder ?? '-'} - {photo.imageKey || photo.id}
+                      </Typography>
+                      <Button size="small" color="error" onClick={() => onDeletePhoto(photo.id)}>
+                        Sil
+                      </Button>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
+            </Stack>
+            <Stack sx={{ gap: 1 }}>
+              <Typography variant="subtitle2">Banner Görseli (opsiyonel)</Typography>
+              <Button variant="outlined" component="label">
+                {bannerFile ? `Seçildi: ${bannerFile.name}` : 'Banner Seç'}
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    setBannerFile(file);
+                    event.target.value = '';
+                  }}
+                />
+              </Button>
+              {editingId && existingBannerUrl && (
+                <Typography variant="body2" color="text.secondary">
+                  Bu etkinlikte aktif banner mevcut.
+                </Typography>
+              )}
+            </Stack>
             <FormControlLabel
               control={
                 <Switch

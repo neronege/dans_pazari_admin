@@ -111,17 +111,17 @@ export default function ReportsPage() {
         <Grid item xs={12} md={4}>
           <MainCard>
             <Typography variant="subtitle2" color="text.secondary">
-              Brüt Satış
+              Toplam Satış
             </Typography>
-            <Typography variant="h4">{field(sales?.grossSalesAmount ?? sales?.grossAmount ?? sales?.totalAmount, '0')}</Typography>
+            <Typography variant="h4">{field(sales?.totalSalesAmount ?? sales?.grossSalesAmount ?? sales?.totalAmount, '0')}</Typography>
           </MainCard>
         </Grid>
         <Grid item xs={12} md={4}>
           <MainCard>
             <Typography variant="subtitle2" color="text.secondary">
-              Net Satış
+              Sipariş Sayısı
             </Typography>
-            <Typography variant="h4">{field(sales?.netSalesAmount ?? sales?.netAmount, '0')}</Typography>
+            <Typography variant="h4">{field(sales?.orderCount ?? sales?.ordersCount, '0')}</Typography>
           </MainCard>
         </Grid>
         <Grid item xs={12} md={4}>
@@ -140,16 +140,17 @@ export default function ReportsPage() {
             <TableHead>
               <TableRow>
                 <TableCell>Etkinlik</TableCell>
-                <TableCell>Bilet</TableCell>
+                <TableCell>Satılan Bilet</TableCell>
+                <TableCell>Kullanılan Bilet</TableCell>
+                <TableCell>İade Bilet</TableCell>
+                <TableCell>Kapasite</TableCell>
                 <TableCell>Brüt Satış</TableCell>
-                <TableCell>Net Satış</TableCell>
-                <TableCell>İade</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     Yükleniyor...
                   </TableCell>
                 </TableRow>
@@ -157,7 +158,7 @@ export default function ReportsPage() {
 
               {!isLoading && performanceRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     Gösterilecek performans satırı bulunamadı.
                   </TableCell>
                 </TableRow>
@@ -168,9 +169,10 @@ export default function ReportsPage() {
                   <TableRow key={row.eventId || row.id || index} hover>
                     <TableCell>{field(row.eventTitle || row.title || row.eventName)}</TableCell>
                     <TableCell>{field(row.ticketsSold || row.ticketCount, 0)}</TableCell>
+                    <TableCell>{field(row.ticketsUsed || row.usedTicketCount, 0)}</TableCell>
+                    <TableCell>{field(row.ticketsRefunded || row.refundedTicketCount, 0)}</TableCell>
+                    <TableCell>{field(row.capacity, 0)}</TableCell>
                     <TableCell>{field(row.grossSalesAmount || row.grossAmount, 0)}</TableCell>
-                    <TableCell>{field(row.netSalesAmount || row.netAmount, 0)}</TableCell>
-                    <TableCell>{field(row.refundCount || row.refunds, 0)}</TableCell>
                   </TableRow>
                 ))}
             </TableBody>

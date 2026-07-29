@@ -68,6 +68,34 @@ export async function deleteEventCover(eventId) {
   await httpClient.delete(endpoints.admin.events.cover(eventId));
 }
 
+export async function uploadEventPhotos(eventId, files = []) {
+  const formData = new FormData();
+  (files || []).forEach((file) => {
+    if (file) {
+      formData.append('Photos', file);
+    }
+  });
+
+  const response = await httpClient.post(endpoints.admin.events.photos(eventId), formData);
+  return response.data;
+}
+
+export async function deleteEventPhoto(eventId, photoId) {
+  await httpClient.delete(endpoints.admin.events.photoDetail(eventId, photoId));
+}
+
+export async function uploadEventBanner(eventId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await httpClient.post(endpoints.admin.events.banner(eventId), formData);
+  return response.data;
+}
+
+export async function deleteEventBanner(eventId) {
+  await httpClient.delete(endpoints.admin.events.banner(eventId));
+}
+
 export async function createEventSession(eventId, payload) {
   const response = await httpClient.post(endpoints.admin.events.sessions(eventId), payload);
   return response.data;

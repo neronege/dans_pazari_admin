@@ -36,10 +36,14 @@ function createMockBreakdown(from, totalDays) {
     const day = new Date(from);
     day.setDate(day.getDate() + index);
     const amount = 12000 + index * 850;
+    const orderCount = 18 + (index % 7);
+    const ticketCount = orderCount * 2;
 
     return {
       periodStartUtc: day.toISOString(),
-      salesAmount: amount
+      salesAmount: amount,
+      orderCount,
+      ticketCount
     };
   });
 }
@@ -49,13 +53,13 @@ function createMockSalesReport(params = {}) {
   const dayCount = daysBetween(from, to);
   const breakdown = createMockBreakdown(from, dayCount);
   const gross = breakdown.reduce((total, item) => total + Number(item.salesAmount || 0), 0);
-  const net = Math.round(gross * 0.9);
+  const orderCount = breakdown.reduce((total, item) => total + Number(item.orderCount || 0), 0);
   const tickets = dayCount * 42;
 
   return {
-    grossSalesAmount: gross,
-    netSalesAmount: net,
-    ticketsSold: tickets,
+    totalSalesAmount: gross,
+    orderCount,
+    ticketCount: tickets,
     currency: 'TRY',
     breakdown
   };
@@ -67,24 +71,30 @@ function createMockPerformanceReport() {
       eventId: 'event-101',
       eventTitle: 'Yaz Dans Gecesi',
       ticketsSold: 320,
+      ticketsUsed: 210,
+      ticketsRefunded: 12,
+      capacity: 500,
       grossSalesAmount: 184000,
-      netSalesAmount: 168500,
       refundCount: 6
     },
     {
       eventId: 'event-102',
       eventTitle: 'Salsa Marathon',
       ticketsSold: 245,
+      ticketsUsed: 180,
+      ticketsRefunded: 8,
+      capacity: 380,
       grossSalesAmount: 141800,
-      netSalesAmount: 129400,
       refundCount: 4
     },
     {
       eventId: 'event-103',
       eventTitle: 'Bachata Bootcamp',
       ticketsSold: 198,
+      ticketsUsed: 142,
+      ticketsRefunded: 5,
+      capacity: 300,
       grossSalesAmount: 118700,
-      netSalesAmount: 109100,
       refundCount: 3
     }
   ];

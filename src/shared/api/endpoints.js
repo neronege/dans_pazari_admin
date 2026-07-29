@@ -27,7 +27,9 @@ export const endpoints = {
     venues: {
       list: '/admin/venues',
       detail: (id) => `/admin/venues/${id}`,
-      active: (id) => `/admin/venues/${id}/active`
+      active: (id) => `/admin/venues/${id}/active`,
+      photos: (id) => `/admin/venues/${id}/photos`,
+      photoDetail: (id, photoId) => `/admin/venues/${id}/photos/${photoId}`
     },
     events: {
       list: '/admin/events',
@@ -37,6 +39,9 @@ export const endpoints = {
       cancel: (id) => `/admin/events/${id}/cancel`,
       featured: (id) => `/admin/events/${id}/featured`,
       cover: (id) => `/admin/events/${id}/cover`,
+      photos: (id) => `/admin/events/${id}/photos`,
+      photoDetail: (id, photoId) => `/admin/events/${id}/photos/${photoId}`,
+      banner: (id) => `/admin/events/${id}/banner`,
       sessions: (eventId) => `/admin/events/${eventId}/sessions`,
       sessionDetail: (eventId, sessionId) => `/admin/events/${eventId}/sessions/${sessionId}`,
       sessionCancel: (eventId, sessionId) => `/admin/events/${eventId}/sessions/${sessionId}/cancel`,

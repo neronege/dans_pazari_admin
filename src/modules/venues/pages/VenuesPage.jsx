@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -17,9 +18,18 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import MainCard from 'components/MainCard';
 import useVenues from 'modules/venues/hooks/useVenues';
-import { createVenue, deleteVenue, getVenueDetail, updateVenue, updateVenueActive } from 'modules/venues/api/venues.service';
+import {
+  addVenuePhotos,
+  createVenue,
+  deleteVenue,
+  deleteVenuePhoto,
+  getVenueDetail,
+  updateVenue,
+  updateVenueActive
+} from 'modules/venues/api/venues.service';
 import { getHumanReadableError } from 'shared/api';
 
 const initialForm = {
@@ -35,7 +45,77 @@ const initialForm = {
   isActive: true
 };
 
+const GOOGLE_MAPS_SCRIPT_ID = 'dp-google-maps-script';
+const DEFAULT_MAP_CENTER = { lat: 41.0082, lng: 28.9784 };
+const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
+const MAX_FILE_COUNT = 20;
+const MAX_TOTAL_REQUEST_BYTES = 20 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+function loadGoogleMapsScript(apiKey) {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('Google Maps sadece tarayıcıda yüklenebilir.'));
+  }
+
+  if (window.google?.maps) {
+    return Promise.resolve(window.google.maps);
+  }
+
+  const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID);
+  if (existingScript) {
+    return new Promise((resolve, reject) => {
+      existingScript.addEventListener('load', () => resolve(window.google.maps), { once: true });
+      existingScript.addEventListener('error', () => reject(new Error('Google Maps script yüklenemedi.')), { once: true });
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.id = GOOGLE_MAPS_SCRIPT_ID;
+    script.async = true;
+    script.defer = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&language=tr&region=TR`;
+    script.onload = () => resolve(window.google.maps);
+    script.onerror = () => reject(new Error('Google Maps script yüklenemedi.'));
+    document.head.appendChild(script);
+  });
+}
+
+function getAddressPart(components, targets) {
+  const found = components.find((component) => component.types.some((type) => targets.includes(type)));
+  return found?.long_name || '';
+}
+
+function extractAddressFields(result) {
+  const components = result?.address_components || [];
+
+  return {
+    city:
+      getAddressPart(components, ['administrative_area_level_1']) ||
+      getAddressPart(components, ['administrative_area_level_2']) ||
+      getAddressPart(components, ['locality']),
+    district:
+      getAddressPart(components, ['administrative_area_level_2']) ||
+      getAddressPart(components, ['sublocality_level_1']) ||
+      getAddressPart(components, ['sublocality']),
+    address: result?.formatted_address || ''
+  };
+}
+
+function toSlug(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ı/g, 'i')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
 export default function VenuesPage() {
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -43,12 +123,141 @@ export default function VenuesPage() {
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [mapError, setMapError] = useState('');
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [existingPhotos, setExistingPhotos] = useState([]);
+
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const geocoderRef = useRef(null);
 
   const { venues, isLoading, error, refresh } = useVenues({ city, search });
+
+  const setMarkerAt = (lat, lng) => {
+    if (!mapRef.current || !window.google?.maps) {
+      return;
+    }
+
+    const nextPosition = { lat, lng };
+
+    if (!markerRef.current) {
+      markerRef.current = new window.google.maps.Marker({
+        map: mapRef.current,
+        position: nextPosition
+      });
+    } else {
+      markerRef.current.setPosition(nextPosition);
+    }
+
+    mapRef.current.panTo(nextPosition);
+  };
+
+  const syncAddressFromLatLng = (lat, lng) => {
+    if (!geocoderRef.current) {
+      return;
+    }
+
+    geocoderRef.current
+      .geocode({ location: { lat, lng } })
+      .then(({ results }) => {
+        const selected = results?.[0];
+        if (!selected) {
+          return;
+        }
+
+        const nextFields = extractAddressFields(selected);
+        setForm((prev) => ({
+          ...prev,
+          city: nextFields.city || prev.city,
+          district: nextFields.district || prev.district,
+          address: nextFields.address || prev.address
+        }));
+      })
+      .catch(() => {
+        setMapError('Adres bilgisi alınamadı. Lütfen haritada farklı bir nokta seçin.');
+      });
+  };
+
+  const updateLocationFromMap = useCallback((lat, lng) => {
+    setMapError('');
+    setForm((prev) => ({
+      ...prev,
+      latitude: lat.toFixed(6),
+      longitude: lng.toFixed(6)
+    }));
+    setMarkerAt(lat, lng);
+    syncAddressFromLatLng(lat, lng);
+  }, []);
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      return;
+    }
+
+    if (!googleMapsApiKey) {
+      setMapError('Google Maps API anahtarı bulunamadı. NEXT_PUBLIC_GOOGLE_MAPS_API_KEY tanımlayın.');
+      return;
+    }
+
+    setMapError('');
+
+    loadGoogleMapsScript(googleMapsApiKey)
+      .then(() => {
+        if (!mapContainerRef.current || mapRef.current) {
+          return;
+        }
+
+        const latitude = Number(form.latitude);
+        const longitude = Number(form.longitude);
+        const hasCoordinates = !Number.isNaN(latitude) && !Number.isNaN(longitude);
+        const center = hasCoordinates ? { lat: latitude, lng: longitude } : DEFAULT_MAP_CENTER;
+
+        mapRef.current = new window.google.maps.Map(mapContainerRef.current, {
+          center,
+          zoom: hasCoordinates ? 14 : 6,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false
+        });
+
+        geocoderRef.current = new window.google.maps.Geocoder();
+
+        if (hasCoordinates) {
+          setMarkerAt(latitude, longitude);
+        }
+
+        mapRef.current.addListener('click', (event) => {
+          const lat = event.latLng?.lat();
+          const lng = event.latLng?.lng();
+
+          if (typeof lat !== 'number' || typeof lng !== 'number') {
+            return;
+          }
+
+          updateLocationFromMap(lat, lng);
+        });
+      })
+      .catch((scriptError) => {
+        setMapError(scriptError.message || 'Google Maps yüklenemedi.');
+      });
+  }, [dialogOpen, form.latitude, form.longitude, googleMapsApiKey, updateLocationFromMap]);
+
+  useEffect(() => {
+    if (dialogOpen) {
+      return;
+    }
+
+    markerRef.current = null;
+    mapRef.current = null;
+    geocoderRef.current = null;
+  }, [dialogOpen]);
 
   const openCreateDialog = () => {
     setEditingId(null);
     setForm(initialForm);
+    setSelectedPhotos([]);
+    setExistingPhotos([]);
     setActionError('');
     setDialogOpen(true);
   };
@@ -61,7 +270,7 @@ export default function VenuesPage() {
       setEditingId(venueId);
       setForm({
         name: detail?.name || '',
-        slug: detail?.slug || '',
+        slug: toSlug(detail?.name || detail?.slug || ''),
         city: detail?.city || '',
         district: detail?.district || '',
         address: detail?.address || '',
@@ -71,7 +280,59 @@ export default function VenuesPage() {
         capacity: detail?.capacity ?? '',
         isActive: detail?.isActive ?? true
       });
+      setSelectedPhotos([]);
+      setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
       setDialogOpen(true);
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    }
+  };
+
+  const validateAndSetPhotos = (files) => {
+    const nextFiles = Array.from(files || []);
+    const totalCount = nextFiles.length + existingPhotos.length;
+    const totalBytes = nextFiles.reduce((sum, file) => sum + Number(file?.size || 0), 0);
+
+    if (totalCount > MAX_FILE_COUNT) {
+      setActionError(`Maksimum ${MAX_FILE_COUNT} fotoğraf yükleyebilirsiniz.`);
+      return;
+    }
+
+    if (totalBytes > MAX_TOTAL_REQUEST_BYTES) {
+      setActionError('Seçilen dosyaların toplamı en fazla 20 MB olabilir.');
+      return;
+    }
+
+    for (const file of nextFiles) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setActionError('Sadece jpeg, png, webp veya gif dosyaları yüklenebilir.');
+        return;
+      }
+
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setActionError('Her bir fotoğraf en fazla 8 MB olabilir.');
+        return;
+      }
+    }
+
+    setActionError('');
+    setSelectedPhotos(nextFiles);
+  };
+
+  const removeSelectedPhoto = (index) => {
+    setSelectedPhotos((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+  };
+
+  const removeExistingPhoto = async (photoId) => {
+    if (!editingId) {
+      return;
+    }
+
+    try {
+      setActionError('');
+      await deleteVenuePhoto(editingId, photoId);
+      setExistingPhotos((prev) => prev.filter((item) => item.id !== photoId));
+      await refresh();
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
     }
@@ -96,17 +357,36 @@ export default function VenuesPage() {
 
     try {
       if (editingId) {
-        await updateVenue(editingId, payload);
+        await updateVenue(editingId, payload, selectedPhotos);
       } else {
-        await createVenue(payload);
+        await createVenue(payload, selectedPhotos);
       }
 
       setDialogOpen(false);
+      setSelectedPhotos([]);
+      setExistingPhotos([]);
       await refresh();
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const uploadExtraPhotos = async () => {
+    if (!editingId || selectedPhotos.length === 0) {
+      return;
+    }
+
+    try {
+      setActionError('');
+      await addVenuePhotos(editingId, selectedPhotos);
+      const detail = await getVenueDetail(editingId);
+      setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
+      setSelectedPhotos([]);
+      await refresh();
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
     }
   };
 
@@ -223,21 +503,19 @@ export default function VenuesPage() {
             <TextField
               label="Ad"
               value={form.name}
-              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              onChange={(event) => {
+                const nextName = event.target.value;
+                setForm((prev) => ({
+                  ...prev,
+                  name: nextName,
+                  slug: toSlug(nextName)
+                }));
+              }}
               required
             />
-            <TextField label="Slug" value={form.slug} onChange={(event) => setForm((prev) => ({ ...prev, slug: event.target.value }))} />
-            <TextField
-              label="Şehir"
-              value={form.city}
-              onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
-              required
-            />
-            <TextField
-              label="İlçe"
-              value={form.district}
-              onChange={(event) => setForm((prev) => ({ ...prev, district: event.target.value }))}
-            />
+            <TextField label="Slug" value={form.slug} slotProps={{ input: { readOnly: true } }} />
+            <TextField label="Şehir" value={form.city} slotProps={{ input: { readOnly: true } }} required />
+            <TextField label="İlçe" value={form.district} slotProps={{ input: { readOnly: true } }} />
             <TextField
               label="Adres"
               value={form.address}
@@ -245,20 +523,64 @@ export default function VenuesPage() {
               required
             />
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
-              <TextField
-                type="number"
-                label="Enlem"
-                value={form.latitude}
-                onChange={(event) => setForm((prev) => ({ ...prev, latitude: event.target.value }))}
-                fullWidth
+              <TextField type="number" label="Enlem" value={form.latitude} slotProps={{ input: { readOnly: true } }} fullWidth />
+              <TextField type="number" label="Boylam" value={form.longitude} slotProps={{ input: { readOnly: true } }} fullWidth />
+            </Stack>
+            <Stack sx={{ gap: 1 }}>
+              <Box
+                ref={mapContainerRef}
+                sx={{ width: '100%', height: 280, borderRadius: 1, border: (theme) => `1px solid ${theme.palette.divider}` }}
               />
-              <TextField
-                type="number"
-                label="Boylam"
-                value={form.longitude}
-                onChange={(event) => setForm((prev) => ({ ...prev, longitude: event.target.value }))}
-                fullWidth
-              />
+              <Alert severity="info">Haritaya tıklayarak mekan konumunu seçin. Enlem, boylam, şehir ve ilçe otomatik doldurulur.</Alert>
+              {mapError && <Alert severity="warning">{mapError}</Alert>}
+            </Stack>
+            <Stack sx={{ gap: 1 }}>
+              <Typography variant="subtitle2">Fotoğraflar</Typography>
+              <Button variant="outlined" component="label">
+                Fotoğraf Seç
+                <input
+                  type="file"
+                  hidden
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(event) => validateAndSetPhotos(event.target.files)}
+                />
+              </Button>
+
+              {selectedPhotos.length > 0 && (
+                <Stack sx={{ gap: 1 }}>
+                  {selectedPhotos.map((file, index) => (
+                    <Stack key={`${file.name}-${index}`} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">{file.name}</Typography>
+                      <Button size="small" color="error" onClick={() => removeSelectedPhoto(index)}>
+                        Kaldır
+                      </Button>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
+
+              {editingId && existingPhotos.length > 0 && (
+                <Stack sx={{ gap: 1 }}>
+                  <Typography variant="body2">Mevcut Fotoğraflar</Typography>
+                  {existingPhotos.map((photo) => (
+                    <Stack key={photo.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">
+                        #{photo.sortOrder ?? '-'} - {photo.imageKey || photo.id}
+                      </Typography>
+                      <Button size="small" color="error" onClick={() => removeExistingPhoto(photo.id)}>
+                        Sil
+                      </Button>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
+
+              {editingId && selectedPhotos.length > 0 && (
+                <Button variant="outlined" onClick={uploadExtraPhotos}>
+                  Seçilen Fotoğrafları Ekle
+                </Button>
+              )}
             </Stack>
             <TextField
               type="number"

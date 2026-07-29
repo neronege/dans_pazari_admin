@@ -43,6 +43,18 @@ const initialForm = {
   isActive: true
 };
 
+function toSlug(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ı/g, 'i')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
 function flattenCategories(categories, level = 0) {
   return (categories || []).flatMap((category) => {
     const row = {
@@ -93,7 +105,7 @@ export default function CategoriesPage() {
       setEditingId(categoryId);
       setForm({
         name: detail?.name || '',
-        slug: detail?.slug || '',
+        slug: toSlug(detail?.name || detail?.slug || ''),
         description: detail?.description || '',
         parentCategoryId: detail?.parentCategoryId || '',
         sortOrder: Number(detail?.sortOrder || 0),
@@ -284,10 +296,17 @@ export default function CategoriesPage() {
             <TextField
               label="Ad"
               value={form.name}
-              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              onChange={(event) => {
+                const nextName = event.target.value;
+                setForm((prev) => ({
+                  ...prev,
+                  name: nextName,
+                  slug: toSlug(nextName)
+                }));
+              }}
               required
             />
-            <TextField label="Slug" value={form.slug} onChange={(event) => setForm((prev) => ({ ...prev, slug: event.target.value }))} />
+            <TextField label="Slug" value={form.slug} slotProps={{ input: { readOnly: true } }} />
             <TextField
               label="Açıklama"
               value={form.description}
