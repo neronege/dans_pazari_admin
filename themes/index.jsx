@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 // material-ui
 import { createTheme, StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { trTR } from '@mui/material/locale';
 
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 
@@ -59,7 +60,7 @@ export default function ThemeCustomization({ children }) {
     [themeTypography, palette]
   );
 
-  const themes = createTheme(themeOptions);
+  const themes = createTheme(themeOptions, trTR);
   themes.components = componentsOverride(themes);
 
   return (

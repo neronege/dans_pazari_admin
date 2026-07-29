@@ -14,8 +14,7 @@ import ProviderWrapper from './ProviderWrapper';
 
 export const metadata = {
   title: 'Mantis Next.js Dashboard',
-  description:
-    'Local Next.js dashboard template built with ReactJS, Material-UI, NextJS, and SWR.',
+  description: 'Local Next.js dashboard template built with ReactJS, Material-UI, NextJS, and SWR.',
   keywords:
     'nextjs admin template, material-ui react dashboard template, reactjs admin template, reactjs dashboard, react backend template',
   author: 'Local build'
@@ -23,11 +22,12 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="tr" suppressHydrationWarning>
       <head>
+        <meta charSet="utf-8" />
         <link rel="stylesheet" href="/third-party/react-table.css" />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <ProviderWrapper>{children}</ProviderWrapper>
       </body>
     </html>

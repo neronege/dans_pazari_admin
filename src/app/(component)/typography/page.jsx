@@ -1,5 +1,5 @@
 // project imports
-import ComponentTypography from "views/components-overview/Typography";
+import ComponentTypography from 'views/components-overview/Typography';
 
 // ==============================|| COMPONENTS - TYPOGRAPHY ||============================== //
 

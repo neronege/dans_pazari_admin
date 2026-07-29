@@ -1,8 +1,8 @@
 // project imports
-import DashboardDefault from 'views/dashboard/default';
+import DashboardDefaultPage from 'modules/dashboard/pages/DashboardDefaultPage';
 
 // ==============================|| DASHBOARD - DEFAULT ||============================== //
 
 export default function Dashboard() {
-  return <DashboardDefault />;
+  return <DashboardDefaultPage />;
 }

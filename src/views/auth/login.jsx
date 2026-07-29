@@ -1,11 +1,7 @@
 'use client';
 
-// next
-import NextLink from 'next/link';
-
 // material-ui
 import Grid from '@mui/material/Grid';
-import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
@@ -27,9 +23,6 @@ export default function SignIn() {
             }}
           >
             <Typography variant="h3">Login</Typography>
-            <Link variant="body1" component={NextLink} href="/register" underline="none" sx={{ color: 'primary.main' }}>
-              Don&apos;t have an account?
-            </Link>
           </Stack>
         </Grid>
         <Grid size={12}>

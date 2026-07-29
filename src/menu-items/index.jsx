@@ -1,13 +1,16 @@
-// project import
-import dashboard from './dashboard';
-import pages from './page';
-import utilities from './utilities';
-import support from './support';
+import menuRegistry from './registry';
+import { filterMenuByRoles, getCurrentUserRoles } from './authz';
 
 // ==============================|| MENU ITEMS ||============================== //
 
-const menuItems = {
-  items: [dashboard, pages, utilities, support]
-};
+export function getMenuItems() {
+  const roles = getCurrentUserRoles();
+
+  return {
+    items: filterMenuByRoles(menuRegistry, roles)
+  };
+}
+
+const menuItems = getMenuItems();
 
 export default menuItems;

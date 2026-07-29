@@ -1,5 +1,9 @@
+'use client';
+
 import PropTypes from 'prop-types';
 // material-ui
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
@@ -14,97 +18,75 @@ import Box from '@mui/material/Box';
 // project imports
 import Dot from 'components/@extended/Dot';
 import { NumericFormat } from 'components/third-party';
+import useRecentOrders from 'modules/orders/hooks/useRecentOrders';
 
-function createData(tracking_no, name, fat, carbs, protein) {
-  return { tracking_no, name, fat, carbs, protein };
-}
+function formatOrderStatus(status) {
+  const statusKey = String(status || '').toLowerCase();
 
-const rows = [
-  createData(84564564, 'Camera Lens', 40, 2, 40570),
-  createData(98764564, 'Laptop', 300, 0, 180139),
-  createData(98756325, 'Mobile', 355, 1, 90989),
-  createData(98652366, 'Handset', 50, 1, 10239),
-  createData(13286564, 'Computer Accessories', 100, 1, 83348),
-  createData(86739658, 'TV', 99, 0, 410780),
-  createData(13256498, 'Keyboard', 125, 2, 70999),
-  createData(98753263, 'Mouse', 89, 2, 10570),
-  createData(98753275, 'Desktop', 185, 1, 98063),
-  createData(98753291, 'Chair', 100, 0, 14001)
-];
-
-function descendingComparator(a, b, orderBy) {
-  if (b[orderBy] < a[orderBy]) {
-    return -1;
+  switch (statusKey) {
+    case 'paid':
+    case 'completed':
+    case '1':
+      return { color: 'success', label: 'Odendi' };
+    case 'pending':
+    case '0':
+      return { color: 'warning', label: 'Beklemede' };
+    case 'partiallyrefunded':
+      return { color: 'warning', label: 'Kismen iade' };
+    case 'refunded':
+      return { color: 'info', label: 'Iade edildi' };
+    case 'cancelled':
+      return { color: 'error', label: 'Iptal edildi' };
+    case 'failed':
+    case 'rejected':
+    case '2':
+      return { color: 'error', label: 'Basarisiz' };
+    default:
+      return { color: 'secondary', label: status || 'Bilinmiyor' };
   }
-  if (b[orderBy] > a[orderBy]) {
-    return 1;
-  }
-  return 0;
-}
-
-function getComparator(order, orderBy) {
-  return order === 'desc' ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy);
-}
-
-function stableSort(array, comparator) {
-  const stabilizedThis = [...array.map((el, index) => [el, index])];
-  stabilizedThis.sort((a, b) => {
-    const order = comparator(a[0], b[0]);
-    if (order !== 0) {
-      return order;
-    }
-    return a[1] - b[1];
-  });
-  return stabilizedThis.map((el) => el[0]);
 }
 
 const headCells = [
   {
-    id: 'tracking_no',
+    id: 'orderNumber',
     align: 'left',
     disablePadding: false,
-    label: 'Tracking No.'
+    label: 'Siparis No'
   },
   {
-    id: 'name',
+    id: 'buyerEmail',
     align: 'left',
     disablePadding: true,
-    label: 'Product Name'
+    label: 'Musteri E-Posta'
   },
   {
-    id: 'fat',
+    id: 'ticketCount',
     align: 'right',
     disablePadding: false,
-    label: 'Total Order'
+    label: 'Bilet'
   },
   {
-    id: 'carbs',
+    id: 'status',
     align: 'left',
     disablePadding: false,
-
-    label: 'Status'
+    label: 'Durum'
   },
   {
-    id: 'protein',
+    id: 'totalAmount',
     align: 'right',
     disablePadding: false,
-    label: 'Total Amount'
+    label: 'Toplam Tutar'
   }
 ];
 
 // ==============================|| ORDER TABLE - HEADER ||============================== //
 
-function OrderTableHead({ order, orderBy }) {
+function OrderTableHead() {
   return (
     <TableHead>
       <TableRow>
         {headCells.map((headCell) => (
-          <TableCell
-            key={headCell.id}
-            align={headCell.align}
-            padding={headCell.disablePadding ? 'none' : 'normal'}
-            sortDirection={orderBy === headCell.id ? order : false}
-          >
+          <TableCell key={headCell.id} align={headCell.align} padding={headCell.disablePadding ? 'none' : 'normal'}>
             {headCell.label}
           </TableCell>
         ))}
@@ -114,31 +96,12 @@ function OrderTableHead({ order, orderBy }) {
 }
 
 function OrderStatus({ status }) {
-  let color;
-  let title;
-
-  switch (status) {
-    case 0:
-      color = 'warning';
-      title = 'Pending';
-      break;
-    case 1:
-      color = 'success';
-      title = 'Approved';
-      break;
-    case 2:
-      color = 'error';
-      title = 'Rejected';
-      break;
-    default:
-      color = 'primary';
-      title = 'None';
-  }
+  const normalized = formatOrderStatus(status);
 
   return (
     <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
-      <Dot color={color} />
-      <Typography>{title}</Typography>
+      <Dot color={normalized.color} />
+      <Typography>{normalized.label}</Typography>
     </Stack>
   );
 }
@@ -146,11 +109,23 @@ function OrderStatus({ status }) {
 // ==============================|| ORDER TABLE ||============================== //
 
 export default function OrderTable() {
-  const order = 'asc';
-  const orderBy = 'tracking_no';
+  const { orders, isLoading, error, retry } = useRecentOrders();
 
   return (
     <Box>
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2, mx: 2, mt: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => retry()}>
+              Tekrar Dene
+            </Button>
+          }
+        >
+          Siparis listesi alinamadi.
+        </Alert>
+      )}
       <TableContainer
         sx={{
           width: '100%',
@@ -162,33 +137,51 @@ export default function OrderTable() {
         }}
       >
         <Table aria-labelledby="tableTitle">
-          <OrderTableHead order={order} orderBy={orderBy} />
+          <OrderTableHead />
           <TableBody>
-            {stableSort(rows, getComparator(order, orderBy)).map((row, index) => {
-              const labelId = `enhanced-table-checkbox-${index}`;
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  Yukleniyor...
+                </TableCell>
+              </TableRow>
+            )}
 
-              return (
-                <TableRow
-                  hover
-                  role="checkbox"
-                  sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                  tabIndex={-1}
-                  key={row.tracking_no}
-                >
-                  <TableCell component="th" id={labelId} scope="row">
-                    <Link sx={{ color: 'secondary.main' }}>{row.tracking_no}</Link>
-                  </TableCell>
-                  <TableCell>{row.name}</TableCell>
-                  <TableCell align="right">{row.fat}</TableCell>
-                  <TableCell>
-                    <OrderStatus status={row.carbs} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <NumericFormat value={row.protein} displayType="text" thousandSeparator prefix="$" />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {!isLoading && orders.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  Gosterilecek siparis bulunamadi.
+                </TableCell>
+              </TableRow>
+            )}
+
+            {!isLoading &&
+              orders.map((row, index) => {
+                const labelId = `enhanced-table-checkbox-${index}`;
+                const currency = row.currency || 'TRY';
+
+                return (
+                  <TableRow
+                    hover
+                    role="checkbox"
+                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                    tabIndex={-1}
+                    key={row.id || row.orderNumber || index}
+                  >
+                    <TableCell component="th" id={labelId} scope="row">
+                      <Link sx={{ color: 'secondary.main' }}>{row.orderNumber || '-'}</Link>
+                    </TableCell>
+                    <TableCell>{row.buyerEmail || '-'}</TableCell>
+                    <TableCell align="right">{row.ticketCount ?? '-'}</TableCell>
+                    <TableCell>
+                      <OrderStatus status={row.status} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <NumericFormat value={row.totalAmount || 0} displayType="text" thousandSeparator suffix={` ${currency}`} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
           </TableBody>
         </Table>
       </TableContainer>
@@ -196,6 +189,6 @@ export default function OrderTable() {
   );
 }
 
-OrderTableHead.propTypes = { order: PropTypes.any, orderBy: PropTypes.string };
+OrderTableHead.propTypes = {};
 
-OrderStatus.propTypes = { status: PropTypes.number };
+OrderStatus.propTypes = { status: PropTypes.oneOfType([PropTypes.number, PropTypes.string]) };

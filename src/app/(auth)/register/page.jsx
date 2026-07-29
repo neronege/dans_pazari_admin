@@ -1,8 +1,5 @@
-// project imports
-import Register from 'views/auth/register';
-
-// ================================|| REGISTER ||================================ //
+import { redirect } from 'next/navigation';
 
 export default function RegisterPage() {
-  return <Register />;
+  redirect('/login');
 }

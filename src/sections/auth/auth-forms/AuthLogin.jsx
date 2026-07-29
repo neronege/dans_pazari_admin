@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 // next
 import Link from 'next/link';
@@ -24,12 +25,16 @@ import { Formik } from 'formik';
 // project imports
 import IconButton from 'components/@extended/IconButton';
 import AnimateButton from 'components/@extended/AnimateButton';
+import { APP_DEFAULT_PATH } from 'config';
+import { loginAndStoreSession } from 'modules/auth/api';
+import { getHumanReadableError } from 'shared/api';
 
 // assets
 import EyeOutlined from '@ant-design/icons/EyeOutlined';
 import EyeInvisibleOutlined from '@ant-design/icons/EyeInvisibleOutlined';
 
 export default function AuthLogin() {
+  const router = useRouter();
   const [checked, setChecked] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const handleClickShowPassword = () => {
@@ -49,19 +54,34 @@ export default function AuthLogin() {
           submit: null
         }}
         validationSchema={Yup.object().shape({
-          email: Yup.string().email('Must be a valid email').max(255).required('Email is required'),
+          email: Yup.string().email('Gecerli bir e-posta girin').max(255).required('E-posta zorunludur'),
           password: Yup.string()
-            .required('Password is required')
-            .test('no-leading-trailing-whitespace', 'Password can not start or end with spaces', (value) => value === value.trim())
-            .max(10, 'Password must be less than 10 characters')
+            .required('Sifre zorunludur')
+            .test('no-leading-trailing-whitespace', 'Sifre bosluk ile baslayamaz veya bitemez', (value) => value === value.trim())
+            .max(10, 'Sifre en fazla 10 karakter olabilir')
         })}
+        onSubmit={async (values, { setErrors, setSubmitting }) => {
+          try {
+            await loginAndStoreSession({
+              email: values.email,
+              password: values.password,
+              keepSignedIn: checked
+            });
+
+            router.replace(APP_DEFAULT_PATH);
+          } catch (error) {
+            setErrors({ submit: getHumanReadableError(error?.problem) || error?.message });
+          } finally {
+            setSubmitting(false);
+          }
+        }}
       >
-        {({ errors, handleBlur, handleChange, touched, values }) => (
-          <form noValidate>
+        {({ errors, handleBlur, handleChange, handleSubmit, isSubmitting, touched, values }) => (
+          <form noValidate onSubmit={handleSubmit}>
             <Grid container spacing={3}>
               <Grid size={12}>
                 <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="email-login">Email Address</InputLabel>
+                  <InputLabel htmlFor="email-login">E-posta Adresi</InputLabel>
                   <OutlinedInput
                     id="email-login"
                     type="email"
@@ -69,7 +89,7 @@ export default function AuthLogin() {
                     name="email"
                     onBlur={handleBlur}
                     onChange={handleChange}
-                    placeholder="Enter email address"
+                    placeholder="E-posta adresinizi girin"
                     fullWidth
                     error={Boolean(touched.email && errors.email)}
                   />
@@ -82,7 +102,7 @@ export default function AuthLogin() {
               </Grid>
               <Grid size={12}>
                 <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="password-login">Password</InputLabel>
+                  <InputLabel htmlFor="password-login">Sifre</InputLabel>
                   <OutlinedInput
                     fullWidth
                     error={Boolean(touched.password && errors.password)}
@@ -105,7 +125,7 @@ export default function AuthLogin() {
                         </IconButton>
                       </InputAdornment>
                     }
-                    placeholder="Enter password"
+                    placeholder="Sifrenizi girin"
                   />
                 </Stack>
                 {touched.password && errors.password && (
@@ -127,18 +147,23 @@ export default function AuthLogin() {
                         size="small"
                       />
                     }
-                    label={<Typography variant="h6">Keep me sign in</Typography>}
+                    label={<Typography variant="h6">Beni hatirla</Typography>}
                   />
 
                   <Links variant="h6" component={Link} href="/forgot-password" sx={{ color: 'text.primary' }} underline="none">
-                    Forgot Password?
+                    Sifremi Unuttum?
                   </Links>
                 </Stack>
               </Grid>
               <Grid size={12}>
+                {errors.submit && (
+                  <FormHelperText error sx={{ mb: 2 }}>
+                    {errors.submit}
+                  </FormHelperText>
+                )}
                 <AnimateButton>
-                  <Button fullWidth size="large" type="submit" variant="contained" color="primary">
-                    Login
+                  <Button fullWidth size="large" type="submit" variant="contained" color="primary" disabled={isSubmitting}>
+                    Giris Yap
                   </Button>
                 </AnimateButton>
               </Grid>

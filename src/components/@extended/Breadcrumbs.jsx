@@ -1,7 +1,7 @@
 'use client';
 
 import PropTypes from 'prop-types';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -14,7 +14,7 @@ import MuiBreadcrumbs from '@mui/material/Breadcrumbs';
 
 // project imports
 import MainCard from 'components/MainCard';
-import navigation from 'menu-items';
+import { getMenuItems } from 'menu-items';
 
 // assets
 import ApartmentOutlined from '@ant-design/icons/ApartmentOutlined';
@@ -58,7 +58,36 @@ export default function Breadcrumbs({
     customLocation = '/apps/customer/customer-card';
   }
 
+  // set active item state
+  const getCollapse = useCallback(
+    (menu) => {
+      if (!custom && menu.children) {
+        menu.children.filter((collapse) => {
+          if (collapse.type && collapse.type === 'collapse') {
+            getCollapse(collapse);
+            if (collapse.url === customLocation) {
+              setMain(collapse);
+              setItem(collapse);
+            }
+          } else if (collapse.type && collapse.type === 'item') {
+            if (customLocation === collapse.url) {
+              setMain(menu);
+              setItem(collapse);
+            }
+          }
+          return false;
+        });
+      }
+    },
+    [custom, customLocation]
+  );
+
   useEffect(() => {
+    setMain(undefined);
+    setItem(undefined);
+
+    const navigation = getMenuItems();
+
     navigation?.items?.map((menu) => {
       if (menu.type && menu.type === 'group') {
         if (menu?.url && menu.url === customLocation) {
@@ -70,28 +99,7 @@ export default function Breadcrumbs({
       }
       return false;
     });
-  });
-
-  // set active item state
-  const getCollapse = (menu) => {
-    if (!custom && menu.children) {
-      menu.children.filter((collapse) => {
-        if (collapse.type && collapse.type === 'collapse') {
-          getCollapse(collapse);
-          if (collapse.url === customLocation) {
-            setMain(collapse);
-            setItem(collapse);
-          }
-        } else if (collapse.type && collapse.type === 'item') {
-          if (customLocation === collapse.url) {
-            setMain(menu);
-            setItem(collapse);
-          }
-        }
-        return false;
-      });
-    }
-  };
+  }, [customLocation, getCollapse]);
 
   // item separator
   const SeparatorIcon = separator;
@@ -135,7 +143,7 @@ export default function Breadcrumbs({
               <Typography component={Link} href="/" variant="h6" sx={{ color: 'text.secondary', textDecoration: 'none' }}>
                 {icons && <HomeOutlined style={iconSX} />}
                 {icon && !icons && <HomeFilled style={{ ...iconSX, marginRight: 0 }} />}
-                {(!icon || icons) && 'Home'}
+                {(!icon || icons) && 'Ana Sayfa'}
               </Typography>
               {mainContent}
             </MuiBreadcrumbs>
@@ -168,7 +176,7 @@ export default function Breadcrumbs({
         <Typography component={Link} href="/" variant="h6" sx={{ color: 'text.secondary', textDecoration: 'none' }}>
           {icons && <HomeOutlined style={iconSX} />}
           {icon && !icons && <HomeFilled style={{ ...iconSX, marginRight: 0 }} />}
-          {(!icon || icons) && 'Home'}
+          {(!icon || icons) && 'Ana Sayfa'}
         </Typography>
         {mainContent}
         {itemContent}

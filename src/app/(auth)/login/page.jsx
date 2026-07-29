@@ -1,8 +1,8 @@
 // project imports
-import SignIn from 'views/auth/login';
+import LoginPage from 'modules/auth/pages/LoginPage';
 
 // ================================|| PAGE ||================================ //
 
 export default function SignInPage() {
-  return <SignIn />;
+  return <LoginPage />;
 }
