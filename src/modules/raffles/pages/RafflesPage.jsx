@@ -250,12 +250,12 @@ export default function RafflesPage() {
               sx={{ minWidth: 200 }}
             >
               <MenuItem value="">Tüm Durumlar</MenuItem>
-              <MenuItem value="Draft">Draft</MenuItem>
-              <MenuItem value="Scheduled">Scheduled</MenuItem>
-              <MenuItem value="Open">Open</MenuItem>
-              <MenuItem value="Drawing">Drawing</MenuItem>
-              <MenuItem value="Completed">Completed</MenuItem>
-              <MenuItem value="Cancelled">Cancelled</MenuItem>
+              <MenuItem value="Draft">Taslak</MenuItem>
+              <MenuItem value="Scheduled">Planlandı</MenuItem>
+              <MenuItem value="Open">Açık</MenuItem>
+              <MenuItem value="Drawing">Çekiliş Yapılıyor</MenuItem>
+              <MenuItem value="Completed">Tamamlandı</MenuItem>
+              <MenuItem value="Cancelled">İptal Edildi</MenuItem>
             </TextField>
           </Stack>
 
