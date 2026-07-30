@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Dialog from '@mui/material/Dialog';
@@ -699,6 +700,8 @@ export default function EventsPage() {
                   <TableCell>Durum</TableCell>
                   <TableCell>Kategori</TableCell>
                   <TableCell>Mekan</TableCell>
+                  <TableCell>Kapak</TableCell>
+                  <TableCell>Banner</TableCell>
                   <TableCell>Öne Çıkan</TableCell>
                   <TableCell align="right">İşlemler</TableCell>
                 </TableRow>
@@ -706,7 +709,7 @@ export default function EventsPage() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={8} align="center">
                       Yükleniyor...
                     </TableCell>
                   </TableRow>
@@ -714,7 +717,7 @@ export default function EventsPage() {
 
                 {!isLoading && events.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={8} align="center">
                       Gösterilecek etkinlik bulunamadı.
                     </TableCell>
                   </TableRow>
@@ -727,6 +730,42 @@ export default function EventsPage() {
                       <TableCell>{normalizeEventStatus(event.status)}</TableCell>
                       <TableCell>{event.categoryName || '-'}</TableCell>
                       <TableCell>{event.venueName || '-'}</TableCell>
+                      <TableCell>
+                        {event.coverImageUrl ? (
+                          <Box
+                            component="img"
+                            src={event.coverImageUrl}
+                            alt="Kapak"
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              border: (theme) => `1px solid ${theme.palette.divider}`
+                            }}
+                          />
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {event.bannerImageUrl ? (
+                          <Box
+                            component="img"
+                            src={event.bannerImageUrl}
+                            alt="Banner"
+                            sx={{
+                              width: 84,
+                              height: 48,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              border: (theme) => `1px solid ${theme.palette.divider}`
+                            }}
+                          />
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
                       <TableCell>{event.isFeatured ? 'Evet' : 'Hayır'}</TableCell>
                       <TableCell align="right">
                         <Button size="small" onClick={() => openEditDialog(event.id)}>
