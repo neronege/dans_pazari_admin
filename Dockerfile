@@ -3,18 +3,19 @@ FROM node:22-alpine AS deps
 RUN corepack enable
 WORKDIR /app
 COPY package.json yarn.lock .yarnrc.yml ./
-# --immutable sunucuda lock drift'te kırılıyor; CI'da lokal yarn install ile lock güncel tutulmalı
-RUN yarn install --mode=skip-build
+ENV YARN_ENABLE_IMMUTABLE_INSTALLS=false
+RUN yarn install
 
 FROM node:22-alpine AS builder
-RUN corepack enable
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
 COPY . .
 ARG NEXT_PUBLIC_API_BASE_URL=https://api.museticket.com
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN yarn build
+# yarn build lockfile'ı yeniden çözümler; next'i doğrudan çalıştır
+RUN ./node_modules/.bin/next build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
