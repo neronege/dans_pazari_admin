@@ -3,7 +3,8 @@ FROM node:22-alpine AS deps
 RUN corepack enable
 WORKDIR /app
 COPY package.json yarn.lock .yarnrc.yml ./
-RUN yarn install --immutable
+# --immutable sunucuda lock drift'te kırılıyor; CI'da lokal yarn install ile lock güncel tutulmalı
+RUN yarn install --mode=skip-build
 
 FROM node:22-alpine AS builder
 RUN corepack enable
