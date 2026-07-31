@@ -49,8 +49,8 @@ export default function AuthLogin() {
     <>
       <Formik
         initialValues={{
-          email: 'demo@local.test',
-          password: '123456',
+          email: 'admin@biletplatform.local',
+          password: 'Admin123!',
           submit: null
         }}
         validationSchema={Yup.object().shape({
@@ -58,7 +58,7 @@ export default function AuthLogin() {
           password: Yup.string()
             .required('Sifre zorunludur')
             .test('no-leading-trailing-whitespace', 'Sifre bosluk ile baslayamaz veya bitemez', (value) => value === value.trim())
-            .max(10, 'Sifre en fazla 10 karakter olabilir')
+            .max(64, 'Sifre en fazla 64 karakter olabilir')
         })}
         onSubmit={async (values, { setErrors, setSubmitting }) => {
           try {
