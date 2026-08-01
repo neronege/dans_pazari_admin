@@ -32,15 +32,27 @@ import {
 } from 'modules/blog/api/blog.service';
 import useBlogPosts from 'modules/blog/hooks/useBlogPosts';
 import { getHumanReadableError } from 'shared/api';
+import {
+  buildTranslationsPayload,
+  createEmptyTranslations,
+  hydrateTranslations,
+  trAsRoot,
+  updateLocaleField
+} from 'shared/i18n/contentLocales';
+import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
 
-const initialForm = {
+const POST_FIELDS = {
   title: '',
+  slug: '',
   summary: '',
   contentHtml: '',
-  slug: '',
-  categoryId: '',
   metaTitle: '',
-  metaDescription: '',
+  metaDescription: ''
+};
+
+const initialForm = {
+  translations: createEmptyTranslations(POST_FIELDS),
+  categoryId: '',
   tagIds: []
 };
 
@@ -60,6 +72,7 @@ export default function BlogPostsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(initialForm);
+  const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
   const [coverTargetPostId, setCoverTargetPostId] = useState(null);
@@ -77,7 +90,12 @@ export default function BlogPostsPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(initialForm);
+    setForm({
+      ...initialForm,
+      translations: createEmptyTranslations(POST_FIELDS),
+      tagIds: []
+    });
+    setLocaleTab('tr');
     setActionError('');
     setDialogOpen(true);
   };
@@ -88,15 +106,18 @@ export default function BlogPostsPage() {
       const detail = await getBlogPostDetail(postId);
       setEditingId(postId);
       setForm({
-        title: detail?.title || '',
-        summary: detail?.summary || '',
-        contentHtml: detail?.contentHtml || '',
-        slug: detail?.slug || '',
+        translations: hydrateTranslations(detail?.translations, POST_FIELDS, {
+          title: detail?.title,
+          slug: detail?.slug,
+          summary: detail?.summary,
+          contentHtml: detail?.contentHtml,
+          metaTitle: detail?.metaTitle,
+          metaDescription: detail?.metaDescription
+        }),
         categoryId: detail?.categoryId || '',
-        metaTitle: detail?.metaTitle || '',
-        metaDescription: detail?.metaDescription || '',
         tagIds: Array.isArray(detail?.tagIds) ? detail.tagIds : Array.isArray(detail?.tags) ? detail.tags.map((tag) => tag.id) : []
       });
+      setLocaleTab('tr');
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -107,15 +128,28 @@ export default function BlogPostsPage() {
     setSaving(true);
     setActionError('');
 
+    const translations = buildTranslationsPayload(form.translations, Object.keys(POST_FIELDS), 'title').filter((row) => {
+      if (row.locale === 'tr') {
+        return true;
+      }
+      // Opsiyonel dil: başlık + özet + içerik dolu olmalı
+      return Boolean(row.summary && row.contentHtml);
+    });
+
+    const root = trAsRoot(form.translations, {
+      title: 'title',
+      slug: 'slug',
+      summary: 'summary',
+      contentHtml: 'contentHtml',
+      metaTitle: 'metaTitle',
+      metaDescription: 'metaDescription'
+    });
+
     const payload = {
-      title: form.title,
-      summary: form.summary,
-      contentHtml: form.contentHtml,
-      slug: form.slug || null,
+      ...root,
       categoryId: form.categoryId || null,
-      metaTitle: form.metaTitle || null,
-      metaDescription: form.metaDescription || null,
-      tagIds: form.tagIds
+      tagIds: form.tagIds,
+      translations
     };
 
     try {
@@ -335,28 +369,86 @@ export default function BlogPostsPage() {
         <DialogTitle>{editingId ? 'Yazı Düzenle' : 'Yazı Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
-            <TextField
-              label="Başlık"
-              value={form.title}
-              onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-              required
-            />
-            <TextField
-              label="Özet"
-              value={form.summary}
-              onChange={(event) => setForm((prev) => ({ ...prev, summary: event.target.value }))}
-              multiline
-              minRows={2}
-              required
-            />
-            <TextField
-              label="İçerik (HTML)"
-              value={form.contentHtml}
-              onChange={(event) => setForm((prev) => ({ ...prev, contentHtml: event.target.value }))}
-              multiline
-              minRows={6}
-              required
-            />
+            <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
+              {(locale) => {
+                const row = form.translations?.[locale] || POST_FIELDS;
+                return (
+                  <Stack sx={{ gap: 2 }}>
+                    <TextField
+                      label="Başlık"
+                      value={row.title}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'title', event.target.value, {
+                            autoSlugFrom: 'title'
+                          })
+                        }))
+                      }
+                      required={locale === 'tr'}
+                    />
+                    <TextField
+                      label="Özet"
+                      value={row.summary}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'summary', event.target.value)
+                        }))
+                      }
+                      multiline
+                      minRows={2}
+                      required={locale === 'tr'}
+                    />
+                    <TextField
+                      label="İçerik (HTML)"
+                      value={row.contentHtml}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'contentHtml', event.target.value)
+                        }))
+                      }
+                      multiline
+                      minRows={6}
+                      required={locale === 'tr'}
+                    />
+                    <TextField
+                      label="Slug"
+                      value={row.slug}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'slug', event.target.value)
+                        }))
+                      }
+                    />
+                    <TextField
+                      label="Meta Başlık"
+                      value={row.metaTitle}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'metaTitle', event.target.value)
+                        }))
+                      }
+                    />
+                    <TextField
+                      label="Meta Açıklama"
+                      value={row.metaDescription}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'metaDescription', event.target.value)
+                        }))
+                      }
+                      multiline
+                      minRows={2}
+                    />
+                  </Stack>
+                );
+              }}
+            </TranslationLocaleTabs>
             <TextField
               select
               label="Kategori"
@@ -370,19 +462,6 @@ export default function BlogPostsPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField label="Slug" value={form.slug} onChange={(event) => setForm((prev) => ({ ...prev, slug: event.target.value }))} />
-            <TextField
-              label="Meta Başlık"
-              value={form.metaTitle}
-              onChange={(event) => setForm((prev) => ({ ...prev, metaTitle: event.target.value }))}
-            />
-            <TextField
-              label="Meta Açıklama"
-              value={form.metaDescription}
-              onChange={(event) => setForm((prev) => ({ ...prev, metaDescription: event.target.value }))}
-              multiline
-              minRows={2}
-            />
             <TextField
               select
               label="Etiketler"
@@ -403,7 +482,12 @@ export default function BlogPostsPage() {
           <Button
             variant="contained"
             onClick={submitForm}
-            disabled={saving || !form.title.trim() || !form.summary.trim() || !form.contentHtml.trim()}
+            disabled={
+              saving ||
+              !String(form.translations?.tr?.title || '').trim() ||
+              !String(form.translations?.tr?.summary || '').trim() ||
+              !String(form.translations?.tr?.contentHtml || '').trim()
+            }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>

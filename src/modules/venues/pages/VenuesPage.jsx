@@ -31,16 +31,22 @@ import {
   updateVenueActive
 } from 'modules/venues/api/venues.service';
 import { getHumanReadableError } from 'shared/api';
+import {
+  buildTranslationsPayload,
+  createEmptyTranslations,
+  hydrateTranslations,
+  trAsRoot,
+  updateLocaleField
+} from 'shared/i18n/contentLocales';
+import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+
+const VENUE_FIELDS = { name: '', slug: '', address: '', district: '', description: '' };
 
 const initialForm = {
-  name: '',
-  slug: '',
+  translations: createEmptyTranslations(VENUE_FIELDS),
   city: '',
-  district: '',
-  address: '',
   latitude: '',
   longitude: '',
-  description: '',
   capacity: '',
   isActive: true
 };
@@ -102,18 +108,6 @@ function extractAddressFields(result) {
   };
 }
 
-function toSlug(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/ı/g, 'i')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
-
 export default function VenuesPage() {
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
   const [search, setSearch] = useState('');
@@ -121,6 +115,7 @@ export default function VenuesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(initialForm);
+  const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
   const [mapError, setMapError] = useState('');
@@ -170,8 +165,14 @@ export default function VenuesPage() {
         setForm((prev) => ({
           ...prev,
           city: nextFields.city || prev.city,
-          district: nextFields.district || prev.district,
-          address: nextFields.address || prev.address
+          translations: {
+            ...prev.translations,
+            tr: {
+              ...prev.translations.tr,
+              district: nextFields.district || prev.translations.tr.district,
+              address: nextFields.address || prev.translations.tr.address
+            }
+          }
         }));
       })
       .catch(() => {
@@ -255,7 +256,11 @@ export default function VenuesPage() {
 
   const openCreateDialog = () => {
     setEditingId(null);
-    setForm(initialForm);
+    setForm({
+      ...initialForm,
+      translations: createEmptyTranslations(VENUE_FIELDS)
+    });
+    setLocaleTab('tr');
     setSelectedPhotos([]);
     setExistingPhotos([]);
     setActionError('');
@@ -269,17 +274,20 @@ export default function VenuesPage() {
 
       setEditingId(venueId);
       setForm({
-        name: detail?.name || '',
-        slug: toSlug(detail?.name || detail?.slug || ''),
+        translations: hydrateTranslations(detail?.translations, VENUE_FIELDS, {
+          name: detail?.name,
+          slug: detail?.slug,
+          address: detail?.address,
+          district: detail?.district,
+          description: detail?.description
+        }),
         city: detail?.city || '',
-        district: detail?.district || '',
-        address: detail?.address || '',
         latitude: detail?.latitude ?? '',
         longitude: detail?.longitude ?? '',
-        description: detail?.description || '',
         capacity: detail?.capacity ?? '',
         isActive: detail?.isActive ?? true
       });
+      setLocaleTab('tr');
       setSelectedPhotos([]);
       setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
       setDialogOpen(true);
@@ -342,17 +350,25 @@ export default function VenuesPage() {
     setSaving(true);
     setActionError('');
 
+    const translations = buildTranslationsPayload(form.translations, Object.keys(VENUE_FIELDS), 'name').filter(
+      (row) => row.locale === 'tr' || Boolean(row.address)
+    );
+    const root = trAsRoot(form.translations, {
+      name: 'name',
+      slug: 'slug',
+      address: 'address',
+      district: 'district',
+      description: 'description'
+    });
+
     const payload = {
-      name: form.name,
-      slug: form.slug || null,
+      ...root,
       city: form.city,
-      district: form.district || null,
-      address: form.address,
       latitude: form.latitude === '' ? null : Number(form.latitude),
       longitude: form.longitude === '' ? null : Number(form.longitude),
-      description: form.description || null,
       capacity: form.capacity === '' ? null : Number(form.capacity),
-      isActive: Boolean(form.isActive)
+      isActive: Boolean(form.isActive),
+      translations
     };
 
     try {
@@ -500,28 +516,63 @@ export default function VenuesPage() {
         <DialogTitle>{editingId ? 'Mekan Düzenle' : 'Mekan Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
-            <TextField
-              label="Ad"
-              value={form.name}
-              onChange={(event) => {
-                const nextName = event.target.value;
-                setForm((prev) => ({
-                  ...prev,
-                  name: nextName,
-                  slug: toSlug(nextName)
-                }));
+            <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
+              {(locale) => {
+                const row = form.translations?.[locale] || VENUE_FIELDS;
+                return (
+                  <Stack sx={{ gap: 2 }}>
+                    <TextField
+                      label="Ad"
+                      value={row.name}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'name', event.target.value, {
+                            autoSlugFrom: 'name'
+                          })
+                        }))
+                      }
+                      required={locale === 'tr'}
+                    />
+                    <TextField label="Slug" value={row.slug} slotProps={{ input: { readOnly: true } }} />
+                    <TextField
+                      label="Adres"
+                      value={row.address}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'address', event.target.value)
+                        }))
+                      }
+                      required={locale === 'tr'}
+                    />
+                    <TextField
+                      label="İlçe"
+                      value={row.district}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'district', event.target.value)
+                        }))
+                      }
+                    />
+                    <TextField
+                      label="Açıklama"
+                      value={row.description}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'description', event.target.value)
+                        }))
+                      }
+                      multiline
+                      minRows={3}
+                    />
+                  </Stack>
+                );
               }}
-              required
-            />
-            <TextField label="Slug" value={form.slug} slotProps={{ input: { readOnly: true } }} />
+            </TranslationLocaleTabs>
             <TextField label="Şehir" value={form.city} slotProps={{ input: { readOnly: true } }} required />
-            <TextField label="İlçe" value={form.district} slotProps={{ input: { readOnly: true } }} />
-            <TextField
-              label="Adres"
-              value={form.address}
-              onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
-              required
-            />
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
               <TextField type="number" label="Enlem" value={form.latitude} slotProps={{ input: { readOnly: true } }} fullWidth />
               <TextField type="number" label="Boylam" value={form.longitude} slotProps={{ input: { readOnly: true } }} fullWidth />
@@ -588,13 +639,6 @@ export default function VenuesPage() {
               value={form.capacity}
               onChange={(event) => setForm((prev) => ({ ...prev, capacity: event.target.value }))}
             />
-            <TextField
-              label="Açıklama"
-              value={form.description}
-              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-              multiline
-              minRows={3}
-            />
             <FormControlLabel
               control={
                 <Switch checked={form.isActive} onChange={(event) => setForm((prev) => ({ ...prev, isActive: event.target.checked }))} />
@@ -608,7 +652,12 @@ export default function VenuesPage() {
           <Button
             variant="contained"
             onClick={submitForm}
-            disabled={saving || !form.name.trim() || !form.city.trim() || !form.address.trim()}
+            disabled={
+              saving ||
+              !String(form.translations?.tr?.name || '').trim() ||
+              !form.city.trim() ||
+              !String(form.translations?.tr?.address || '').trim()
+            }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>

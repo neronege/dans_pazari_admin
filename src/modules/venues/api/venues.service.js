@@ -22,6 +22,10 @@ function toVenueFormData(payload = {}, photos = []) {
   appendField(formData, 'capacity', payload.capacity);
   appendField(formData, 'isActive', payload.isActive);
 
+  if (payload.translations) {
+    formData.append('translations', JSON.stringify(payload.translations));
+  }
+
   (photos || []).forEach((file) => {
     if (file) {
       formData.append('Photos', file);

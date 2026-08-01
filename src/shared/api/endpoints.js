@@ -65,13 +65,21 @@ export const endpoints = {
     },
     blog: {
       categories: '/admin/blog/categories',
+      categoryDetail: (id) => `/admin/blog/categories/${id}`,
       tags: '/admin/blog/tags',
+      tagDetail: (id) => `/admin/blog/tags/${id}`,
       posts: '/admin/blog/posts',
       postDetail: (id) => `/admin/blog/posts/${id}`,
       postPublish: (id) => `/admin/blog/posts/${id}/publish`,
       postUnpublish: (id) => `/admin/blog/posts/${id}/unpublish`,
       postArchive: (id) => `/admin/blog/posts/${id}/archive`,
       postCover: (id) => `/admin/blog/posts/${id}/cover`
+    },
+    legal: {
+      list: '/admin/legal',
+      detail: (slug) => `/admin/legal/${slug}`,
+      publish: (slug) => `/admin/legal/${slug}/publish`,
+      unpublish: (slug) => `/admin/legal/${slug}/unpublish`
     },
     raffles: {
       list: '/admin/raffles',

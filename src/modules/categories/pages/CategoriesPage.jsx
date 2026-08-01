@@ -33,27 +33,23 @@ import {
   updateCategoryActive
 } from 'modules/categories/api/categories.service';
 import { getHumanReadableError } from 'shared/api';
+import {
+  buildTranslationsPayload,
+  createEmptyTranslations,
+  hydrateTranslations,
+  trAsRoot,
+  updateLocaleField
+} from 'shared/i18n/contentLocales';
+import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+
+const CATEGORY_FIELDS = { name: '', slug: '', description: '' };
 
 const initialForm = {
-  name: '',
-  slug: '',
-  description: '',
+  translations: createEmptyTranslations(CATEGORY_FIELDS),
   parentCategoryId: '',
   sortOrder: 0,
   isActive: true
 };
-
-function toSlug(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/ı/g, 'i')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
 
 function flattenCategories(categories, level = 0) {
   return (categories || []).flatMap((category) => {
@@ -74,6 +70,7 @@ export default function CategoriesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(initialForm);
+  const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
 
@@ -90,9 +87,15 @@ export default function CategoriesPage() {
     return rows.filter((row) => `${row.name || ''} ${row.slug || ''}`.toLowerCase().includes(query));
   }, [rows, search]);
 
+  const trName = form.translations?.tr?.name || '';
+
   const openCreateDialog = () => {
     setEditingId(null);
-    setForm(initialForm);
+    setForm({
+      ...initialForm,
+      translations: createEmptyTranslations(CATEGORY_FIELDS)
+    });
+    setLocaleTab('tr');
     setActionError('');
     setDialogOpen(true);
   };
@@ -104,30 +107,44 @@ export default function CategoriesPage() {
 
       setEditingId(categoryId);
       setForm({
-        name: detail?.name || '',
-        slug: toSlug(detail?.name || detail?.slug || ''),
-        description: detail?.description || '',
+        translations: hydrateTranslations(detail?.translations, CATEGORY_FIELDS, {
+          name: detail?.name,
+          slug: detail?.slug,
+          description: detail?.description
+        }),
         parentCategoryId: detail?.parentCategoryId || '',
         sortOrder: Number(detail?.sortOrder || 0),
         isActive: detail?.isActive ?? true
       });
+      setLocaleTab('tr');
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
     }
   };
 
+  const setLocaleValue = (locale, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      translations: updateLocaleField(prev.translations, locale, field, value, {
+        autoSlugFrom: field === 'name' ? 'name' : undefined
+      })
+    }));
+  };
+
   const submitForm = async () => {
     setSaving(true);
     setActionError('');
 
+    const translations = buildTranslationsPayload(form.translations, Object.keys(CATEGORY_FIELDS), 'name');
+    const root = trAsRoot(form.translations, { name: 'name', slug: 'slug', description: 'description' });
+
     const payload = {
-      name: form.name,
-      slug: form.slug || null,
-      description: form.description || null,
+      ...root,
       parentCategoryId: form.parentCategoryId || null,
       sortOrder: Number(form.sortOrder || 0),
-      isActive: Boolean(form.isActive)
+      isActive: Boolean(form.isActive),
+      translations
     };
 
     try {
@@ -195,6 +212,8 @@ export default function CategoriesPage() {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
     }
   };
+
+  const localeRow = form.translations?.[localeTab] || CATEGORY_FIELDS;
 
   return (
     <>
@@ -293,27 +312,27 @@ export default function CategoriesPage() {
         <DialogTitle>{editingId ? 'Kategori Düzenle' : 'Kategori Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
-            <TextField
-              label="Ad"
-              value={form.name}
-              onChange={(event) => {
-                const nextName = event.target.value;
-                setForm((prev) => ({
-                  ...prev,
-                  name: nextName,
-                  slug: toSlug(nextName)
-                }));
-              }}
-              required
-            />
-            <TextField label="Slug" value={form.slug} slotProps={{ input: { readOnly: true } }} />
-            <TextField
-              label="Açıklama"
-              value={form.description}
-              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-              multiline
-              minRows={3}
-            />
+            <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
+              {() => (
+                <Stack sx={{ gap: 2 }}>
+                  <TextField
+                    label="Ad"
+                    value={localeRow.name}
+                    onChange={(event) => setLocaleValue(localeTab, 'name', event.target.value)}
+                    required={localeTab === 'tr'}
+                  />
+                  <TextField label="Slug" value={localeRow.slug} slotProps={{ input: { readOnly: true } }} />
+                  <TextField
+                    label="Açıklama"
+                    value={localeRow.description}
+                    onChange={(event) => setLocaleValue(localeTab, 'description', event.target.value)}
+                    multiline
+                    minRows={3}
+                  />
+                </Stack>
+              )}
+            </TranslationLocaleTabs>
+
             <TextField
               select
               label="Üst Kategori"
@@ -345,7 +364,7 @@ export default function CategoriesPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Vazgeç</Button>
-          <Button variant="contained" onClick={submitForm} disabled={saving || !form.name.trim()}>
+          <Button variant="contained" onClick={submitForm} disabled={saving || !trName.trim()}>
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>
         </DialogActions>

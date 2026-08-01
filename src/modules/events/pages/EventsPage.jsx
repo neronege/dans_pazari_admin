@@ -51,17 +51,32 @@ import {
 import useEvents from 'modules/events/hooks/useEvents';
 import useSWR from 'swr';
 import { getHumanReadableError } from 'shared/api';
+import {
+  buildTranslationsPayload,
+  createEmptyTranslations,
+  hydrateTranslations,
+  trAsRoot,
+  updateLocaleField
+} from 'shared/i18n/contentLocales';
+import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
 
-const initialForm = {
+const EVENT_FIELDS = {
   title: '',
-  description: '',
-  categoryId: '',
-  venueId: '',
   slug: '',
+  description: '',
   shortDescription: '',
-  isFeatured: false,
   metaTitle: '',
   metaDescription: ''
+};
+
+const initialForm = {
+  translations: createEmptyTranslations(EVENT_FIELDS),
+  categoryId: '',
+  venueId: '',
+  isFeatured: false,
+  organizerFirstName: '',
+  organizerLastName: '',
+  organizerAbout: ''
 };
 
 function flattenCategories(categories, level = 0) {
@@ -101,6 +116,7 @@ export default function EventsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(initialForm);
+  const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
   const [opsDialogOpen, setOpsDialogOpen] = useState(false);
@@ -128,7 +144,11 @@ export default function EventsPage() {
 
   const openCreateDialog = () => {
     setEditingId(null);
-    setForm(initialForm);
+    setForm({
+      ...initialForm,
+      translations: createEmptyTranslations(EVENT_FIELDS)
+    });
+    setLocaleTab('tr');
     setCoverFile(null);
     setBannerFile(null);
     setGalleryFiles([]);
@@ -145,16 +165,22 @@ export default function EventsPage() {
 
       setEditingId(eventId);
       setForm({
-        title: detail?.title || detail?.name || '',
-        description: detail?.description || '',
+        translations: hydrateTranslations(detail?.translations, EVENT_FIELDS, {
+          title: detail?.title || detail?.name,
+          slug: detail?.slug,
+          description: detail?.description,
+          shortDescription: detail?.shortDescription,
+          metaTitle: detail?.metaTitle,
+          metaDescription: detail?.metaDescription
+        }),
         categoryId: detail?.categoryId || '',
         venueId: detail?.venueId || '',
-        slug: detail?.slug || '',
-        shortDescription: detail?.shortDescription || '',
         isFeatured: detail?.isFeatured ?? false,
-        metaTitle: detail?.metaTitle || '',
-        metaDescription: detail?.metaDescription || ''
+        organizerFirstName: detail?.organizerFirstName || '',
+        organizerLastName: detail?.organizerLastName || '',
+        organizerAbout: detail?.organizerAbout || ''
       });
+      setLocaleTab('tr');
       setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
       setExistingBannerUrl(detail?.bannerImageUrl || '');
       setCoverFile(null);
@@ -184,16 +210,27 @@ export default function EventsPage() {
     setSaving(true);
     setActionError('');
 
+    const translations = buildTranslationsPayload(form.translations, Object.keys(EVENT_FIELDS), 'title').filter(
+      (row) => row.locale === 'tr' || Boolean(row.description)
+    );
+    const root = trAsRoot(form.translations, {
+      title: 'title',
+      slug: 'slug',
+      description: 'description',
+      shortDescription: 'shortDescription',
+      metaTitle: 'metaTitle',
+      metaDescription: 'metaDescription'
+    });
+
     const payload = {
-      title: form.title,
-      description: form.description,
+      ...root,
       categoryId: form.categoryId,
       venueId: form.venueId,
-      slug: form.slug || null,
-      shortDescription: form.shortDescription || null,
       isFeatured: Boolean(form.isFeatured),
-      metaTitle: form.metaTitle || null,
-      metaDescription: form.metaDescription || null
+      organizerFirstName: form.organizerFirstName.trim() || null,
+      organizerLastName: form.organizerLastName.trim() || null,
+      organizerAbout: form.organizerAbout.trim() || null,
+      translations
     };
 
     try {
@@ -814,20 +851,85 @@ export default function EventsPage() {
         <DialogTitle>{editingId ? 'Etkinlik Düzenle' : 'Etkinlik Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
-            <TextField
-              label="Baslik"
-              value={form.title}
-              onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-              required
-            />
-            <TextField
-              label="Açıklama"
-              value={form.description}
-              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-              multiline
-              minRows={4}
-              required
-            />
+            <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
+              {(locale) => {
+                const row = form.translations?.[locale] || EVENT_FIELDS;
+                return (
+                  <Stack sx={{ gap: 2 }}>
+                    <TextField
+                      label="Baslik"
+                      value={row.title}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'title', event.target.value, {
+                            autoSlugFrom: 'title'
+                          })
+                        }))
+                      }
+                      required={locale === 'tr'}
+                    />
+                    <TextField
+                      label="Slug"
+                      value={row.slug}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'slug', event.target.value)
+                        }))
+                      }
+                    />
+                    <TextField
+                      label="Açıklama"
+                      value={row.description}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'description', event.target.value)
+                        }))
+                      }
+                      multiline
+                      minRows={4}
+                      required={locale === 'tr'}
+                    />
+                    <TextField
+                      label="Kısa Açıklama"
+                      value={row.shortDescription}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'shortDescription', event.target.value)
+                        }))
+                      }
+                      multiline
+                      minRows={2}
+                    />
+                    <TextField
+                      label="Meta Başlık"
+                      value={row.metaTitle}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'metaTitle', event.target.value)
+                        }))
+                      }
+                    />
+                    <TextField
+                      label="Meta Açıklama"
+                      value={row.metaDescription}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          translations: updateLocaleField(prev.translations, locale, 'metaDescription', event.target.value)
+                        }))
+                      }
+                      multiline
+                      minRows={2}
+                    />
+                  </Stack>
+                );
+              }}
+            </TranslationLocaleTabs>
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
               <TextField
                 select
@@ -861,26 +963,6 @@ export default function EventsPage() {
                 ))}
               </TextField>
             </Stack>
-            <TextField label="Slug" value={form.slug} onChange={(event) => setForm((prev) => ({ ...prev, slug: event.target.value }))} />
-            <TextField
-              label="Kısa Açıklama"
-              value={form.shortDescription}
-              onChange={(event) => setForm((prev) => ({ ...prev, shortDescription: event.target.value }))}
-              multiline
-              minRows={2}
-            />
-            <TextField
-              label="Meta Başlık"
-              value={form.metaTitle}
-              onChange={(event) => setForm((prev) => ({ ...prev, metaTitle: event.target.value }))}
-            />
-            <TextField
-              label="Meta Açıklama"
-              value={form.metaDescription}
-              onChange={(event) => setForm((prev) => ({ ...prev, metaDescription: event.target.value }))}
-              multiline
-              minRows={2}
-            />
             <Stack sx={{ gap: 1 }}>
               <Typography variant="subtitle2">Kapak Görseli (opsiyonel)</Typography>
               <Button variant="outlined" component="label">
@@ -964,6 +1046,29 @@ export default function EventsPage() {
               }
               label="Öne Çıkan"
             />
+            <Typography variant="subtitle2">Düzenleyen Kişi (opsiyonel)</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
+              <TextField
+                label="Ad"
+                value={form.organizerFirstName}
+                onChange={(event) => setForm((prev) => ({ ...prev, organizerFirstName: event.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Soyad"
+                value={form.organizerLastName}
+                onChange={(event) => setForm((prev) => ({ ...prev, organizerLastName: event.target.value }))}
+                fullWidth
+              />
+            </Stack>
+            <TextField
+              label="Hakkında"
+              value={form.organizerAbout}
+              onChange={(event) => setForm((prev) => ({ ...prev, organizerAbout: event.target.value }))}
+              multiline
+              minRows={3}
+              fullWidth
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -971,7 +1076,13 @@ export default function EventsPage() {
           <Button
             variant="contained"
             onClick={submitForm}
-            disabled={saving || !form.title.trim() || !form.description.trim() || !form.categoryId || !form.venueId}
+            disabled={
+              saving ||
+              !String(form.translations?.tr?.title || '').trim() ||
+              !String(form.translations?.tr?.description || '').trim() ||
+              !form.categoryId ||
+              !form.venueId
+            }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>
