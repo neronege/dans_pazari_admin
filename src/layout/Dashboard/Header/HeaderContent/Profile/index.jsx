@@ -1,59 +1,78 @@
 'use client';
 
-import PropTypes from 'prop-types';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 // material-ui
-import { useTheme } from '@mui/material/styles';
 import ButtonBase from '@mui/material/ButtonBase';
 import CardContent from '@mui/material/CardContent';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Paper from '@mui/material/Paper';
 import Popper from '@mui/material/Popper';
 import Stack from '@mui/material/Stack';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 
 // project imports
 import ProfileTab from './ProfileTab';
-import SettingTab from './SettingTab';
 import Avatar from 'components/@extended/Avatar';
 import MainCard from 'components/MainCard';
 import Transitions from 'components/@extended/Transitions';
 import IconButton from 'components/@extended/IconButton';
+import { getAccessToken, getCurrentUser } from 'shared/api';
+import { logout } from 'modules/auth/api';
+import { decodeJwtPayload } from 'modules/auth/model/jwt';
 
 // assets
 import LogoutOutlined from '@ant-design/icons/LogoutOutlined';
-import SettingOutlined from '@ant-design/icons/SettingOutlined';
-import UserOutlined from '@ant-design/icons/UserOutlined';
 const avatar1 = '/assets/images/users/avatar-1.png';
 
-// tab panel wrapper
-function TabPanel({ children, value, index, ...other }) {
-  return (
-    <div role="tabpanel" hidden={value !== index} id={`profile-tabpanel-${index}`} aria-labelledby={`profile-tab-${index}`} {...other}>
-      {value === index && children}
-    </div>
-  );
+function toDisplayName(user, payload) {
+  const fromUser =
+    user?.fullName ||
+    user?.name ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+    user?.email;
+
+  const fromPayload =
+    payload?.name ||
+    payload?.unique_name ||
+    payload?.preferred_username ||
+    payload?.email ||
+    payload?.sub;
+
+  return fromUser || fromPayload || 'Admin Kullanici';
 }
 
-function a11yProps(index) {
-  return {
-    id: `profile-tab-${index}`,
-    'aria-controls': `profile-tabpanel-${index}`
-  };
+function toDisplayRole(user, payload) {
+  const schemaRole = payload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+  const role = user?.role || payload?.role || schemaRole;
+  if (Array.isArray(role)) {
+    return role[0] || 'Admin';
+  }
+
+  return role || 'Admin';
 }
 
 // ==============================|| HEADER CONTENT - PROFILE ||============================== //
 
 export default function Profile() {
-  const theme = useTheme();
+  const router = useRouter();
 
   const anchorRef = useRef(null);
   const [open, setOpen] = useState(false);
+
+  const profileInfo = useMemo(() => {
+    const user = getCurrentUser();
+    const payload = decodeJwtPayload(getAccessToken());
+
+    return {
+      name: toDisplayName(user, payload),
+      role: toDisplayRole(user, payload)
+    };
+  }, [open]);
+
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
   };
@@ -65,10 +84,13 @@ export default function Profile() {
     setOpen(false);
   };
 
-  const [value, setValue] = useState(0);
-
-  const handleChange = (event, newValue) => {
-    setValue(newValue);
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      setOpen(false);
+      router.replace('/login');
+    }
   };
 
   return (
@@ -117,60 +139,22 @@ export default function Profile() {
                       <Stack direction="row" sx={{ gap: 1.25, alignItems: 'center' }}>
                         <Avatar alt="profile user" src={avatar1} sx={{ width: 32, height: 32 }} />
                         <Stack>
-                          <Typography variant="h6">John Doe</Typography>
+                          <Typography variant="h6">{profileInfo.name}</Typography>
                           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                            UI/UX Designer
+                            {profileInfo.role}
                           </Typography>
                         </Stack>
                       </Stack>
                       <Tooltip title="Logout">
-                        <IconButton size="large" sx={{ color: 'text.primary' }}>
+                        <IconButton size="large" sx={{ color: 'text.primary' }} onClick={handleLogout}>
                           <LogoutOutlined />
                         </IconButton>
                       </Tooltip>
                     </Stack>
                   </CardContent>
-
-                  <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <Tabs variant="fullWidth" value={value} onChange={handleChange} aria-label="profile tabs">
-                      <Tab
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'row',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          textTransform: 'capitalize',
-                          gap: 1.25,
-                          '& .MuiTab-icon': {
-                            marginBottom: 0
-                          }
-                        }}
-                        icon={<UserOutlined />}
-                        label="Profile"
-                        {...a11yProps(0)}
-                      />
-                      <Tab
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'row',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          textTransform: 'capitalize',
-                          gap: 1.25,
-                          '& .MuiTab-icon': { marginBottom: 0 }
-                        }}
-                        icon={<SettingOutlined />}
-                        label="Setting"
-                        {...a11yProps(1)}
-                      />
-                    </Tabs>
+                  <Box>
+                    <ProfileTab onLogout={handleLogout} />
                   </Box>
-                  <TabPanel value={value} index={0} dir={theme.direction}>
-                    <ProfileTab />
-                  </TabPanel>
-                  <TabPanel value={value} index={1} dir={theme.direction}>
-                    <SettingTab />
-                  </TabPanel>
                 </MainCard>
               </ClickAwayListener>
             </Paper>
@@ -180,5 +164,3 @@ export default function Profile() {
     </Box>
   );
 }
-
-TabPanel.propTypes = { children: PropTypes.node, value: PropTypes.number, index: PropTypes.number, other: PropTypes.any };

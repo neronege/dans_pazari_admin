@@ -1,4 +1,4 @@
-import { endpoints, getRefreshToken, httpClient, setTokens, clearTokens } from 'shared/api';
+import { endpoints, getRefreshToken, httpClient, setTokens, clearTokens, setCurrentUser } from 'shared/api';
 
 function toAuthPayload(payload) {
   return {
@@ -24,6 +24,7 @@ export async function loginAndStoreSession(payload) {
   const data = await login(payload);
   assertAdminUser(data?.user);
   setTokens(data?.tokens);
+  setCurrentUser(data?.user);
   return data;
 }
 
@@ -41,6 +42,9 @@ export async function refreshSession(refreshTokenOverride) {
   const data = response.data;
   assertAdminUser(data?.user);
   setTokens(data?.tokens);
+  if (data?.user) {
+    setCurrentUser(data.user);
+  }
   return data;
 }
 
