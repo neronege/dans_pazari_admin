@@ -40,10 +40,12 @@ import {
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
 
-const VENUE_FIELDS = { name: '', slug: '', address: '', district: '', description: '' };
+const VENUE_FIELDS = { name: '', slug: '', description: '' };
 
 const initialForm = {
   translations: createEmptyTranslations(VENUE_FIELDS),
+  address: '',
+  district: '',
   city: '',
   latitude: '',
   longitude: '',
@@ -165,14 +167,8 @@ export default function VenuesPage() {
         setForm((prev) => ({
           ...prev,
           city: nextFields.city || prev.city,
-          translations: {
-            ...prev.translations,
-            tr: {
-              ...prev.translations.tr,
-              district: nextFields.district || prev.translations.tr.district,
-              address: nextFields.address || prev.translations.tr.address
-            }
-          }
+          district: nextFields.district || prev.district,
+          address: nextFields.address || prev.address
         }));
       })
       .catch(() => {
@@ -264,6 +260,9 @@ export default function VenuesPage() {
     setSelectedPhotos([]);
     setExistingPhotos([]);
     setActionError('');
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setDialogOpen(true);
   };
 
@@ -277,10 +276,10 @@ export default function VenuesPage() {
         translations: hydrateTranslations(detail?.translations, VENUE_FIELDS, {
           name: detail?.name,
           slug: detail?.slug,
-          address: detail?.address,
-          district: detail?.district,
           description: detail?.description
         }),
+        address: detail?.address || '',
+        district: detail?.district || '',
         city: detail?.city || '',
         latitude: detail?.latitude ?? '',
         longitude: detail?.longitude ?? '',
@@ -290,6 +289,9 @@ export default function VenuesPage() {
       setLocaleTab('tr');
       setSelectedPhotos([]);
       setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
+      if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -346,23 +348,41 @@ export default function VenuesPage() {
     }
   };
 
+  const closeDialog = () => {
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setDialogOpen(false);
+  };
+
   const submitForm = async () => {
     setSaving(true);
     setActionError('');
 
-    const translations = buildTranslationsPayload(form.translations, Object.keys(VENUE_FIELDS), 'name').filter(
-      (row) => row.locale === 'tr' || Boolean(row.address)
-    );
+    const sharedAddress = String(form.address || '').trim();
+    const sharedDistrict = String(form.district || '').trim() || null;
+
+    // Adres/ilçe dile bağlı değil — tüm locale satırlarına aynı değer yazılır.
+    const translations = buildTranslationsPayload(
+      form.translations,
+      Object.keys(VENUE_FIELDS),
+      'name'
+    ).map((row) => ({
+      ...row,
+      address: sharedAddress,
+      district: sharedDistrict
+    }));
+
     const root = trAsRoot(form.translations, {
       name: 'name',
       slug: 'slug',
-      address: 'address',
-      district: 'district',
       description: 'description'
     });
 
     const payload = {
       ...root,
+      address: sharedAddress,
+      district: sharedDistrict,
       city: form.city,
       latitude: form.latitude === '' ? null : Number(form.latitude),
       longitude: form.longitude === '' ? null : Number(form.longitude),
@@ -378,7 +398,7 @@ export default function VenuesPage() {
         await createVenue(payload, selectedPhotos);
       }
 
-      setDialogOpen(false);
+      closeDialog();
       setSelectedPhotos([]);
       setExistingPhotos([]);
       await refresh();
@@ -512,7 +532,13 @@ export default function VenuesPage() {
         </Stack>
       </MainCard>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={dialogOpen}
+        onClose={closeDialog}
+        fullWidth
+        maxWidth="sm"
+        disableRestoreFocus
+      >
         <DialogTitle>{editingId ? 'Mekan Düzenle' : 'Mekan Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
@@ -536,27 +562,6 @@ export default function VenuesPage() {
                     />
                     <TextField label="Slug" value={row.slug} slotProps={{ input: { readOnly: true } }} />
                     <TextField
-                      label="Adres"
-                      value={row.address}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'address', event.target.value)
-                        }))
-                      }
-                      required={locale === 'tr'}
-                    />
-                    <TextField
-                      label="İlçe"
-                      value={row.district}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'district', event.target.value)
-                        }))
-                      }
-                    />
-                    <TextField
                       label="Açıklama"
                       value={row.description}
                       onChange={(event) =>
@@ -572,6 +577,18 @@ export default function VenuesPage() {
                 );
               }}
             </TranslationLocaleTabs>
+            <TextField
+              label="Adres"
+              value={form.address}
+              onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
+              required
+              helperText="Adres tüm dillerde aynı kullanılır."
+            />
+            <TextField
+              label="İlçe"
+              value={form.district}
+              onChange={(event) => setForm((prev) => ({ ...prev, district: event.target.value }))}
+            />
             <TextField label="Şehir" value={form.city} slotProps={{ input: { readOnly: true } }} required />
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
               <TextField type="number" label="Enlem" value={form.latitude} slotProps={{ input: { readOnly: true } }} fullWidth />
@@ -648,7 +665,7 @@ export default function VenuesPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Vazgeç</Button>
+          <Button onClick={closeDialog}>Vazgeç</Button>
           <Button
             variant="contained"
             onClick={submitForm}
@@ -656,7 +673,7 @@ export default function VenuesPage() {
               saving ||
               !String(form.translations?.tr?.name || '').trim() ||
               !form.city.trim() ||
-              !String(form.translations?.tr?.address || '').trim()
+              !String(form.address || '').trim()
             }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
