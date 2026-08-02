@@ -108,6 +108,22 @@ function normalizeEventStatus(value) {
   return 'Draft';
 }
 
+function getEventStatusLabel(statusCode) {
+  if (statusCode === 'Published') {
+    return 'Yayinda';
+  }
+
+  if (statusCode === 'Cancelled') {
+    return 'Iptal Edildi';
+  }
+
+  if (statusCode === 'Archived') {
+    return 'Arsivlendi';
+  }
+
+  return 'Taslak';
+}
+
 function resolvePhotoUrl(photo) {
   return photo?.imageUrl || photo?.photoUrl || photo?.url || photo?.fileUrl || photo?.thumbnailUrl || '';
 }
@@ -133,6 +149,7 @@ export default function EventsPage() {
   const [bannerFile, setBannerFile] = useState(null);
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
+  const [existingCoverUrl, setExistingCoverUrl] = useState('');
   const [existingBannerUrl, setExistingBannerUrl] = useState('');
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
   const fileInputRef = useRef(null);
@@ -204,6 +221,7 @@ export default function EventsPage() {
     setBannerFile(null);
     setGalleryFiles([]);
     setExistingPhotos([]);
+    setExistingCoverUrl('');
     setExistingBannerUrl('');
     setActionError('');
     setDialogOpen(true);
@@ -213,6 +231,17 @@ export default function EventsPage() {
     try {
       setActionError('');
       const detail = await getEventDetail(eventId);
+      const coverUrl = detail?.coverImageUrl || '';
+      const coverKey = detail?.coverImageKey || '';
+      const photos = Array.isArray(detail?.photos) ? detail.photos : [];
+      // Eski bug: kapak galeriye de yazılmış olabilirdi — cover ile aynı URL/key galeriden gizlenir.
+      const galleryOnly = photos.filter((photo) => {
+        const url = photo?.imageUrl || photo?.url || '';
+        const key = photo?.imageKey || '';
+        if (coverUrl && url && url === coverUrl) return false;
+        if (coverKey && key && key === coverKey) return false;
+        return true;
+      });
 
       setEditingId(eventId);
       setForm({
@@ -232,7 +261,8 @@ export default function EventsPage() {
         organizerAbout: detail?.organizerAbout || ''
       });
       setLocaleTab('tr');
-      setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
+      setExistingPhotos(galleryOnly);
+      setExistingCoverUrl(coverUrl);
       setExistingBannerUrl(detail?.bannerImageUrl || '');
       setCoverFile(null);
       setBannerFile(null);
@@ -305,6 +335,7 @@ export default function EventsPage() {
       setBannerFile(null);
       setGalleryFiles([]);
       setExistingPhotos([]);
+      setExistingCoverUrl('');
       setExistingBannerUrl('');
       await refresh();
     } catch (requestError) {
@@ -755,10 +786,10 @@ export default function EventsPage() {
             <TextField label="Şehir" value={city} onChange={(event) => setCity(event.target.value)} sx={{ minWidth: 200 }} />
             <TextField select label="Durum" value={status} onChange={(event) => setStatus(event.target.value)} sx={{ minWidth: 180 }}>
               <MenuItem value="">Tüm Durumlar</MenuItem>
-              <MenuItem value="Draft">Draft</MenuItem>
-              <MenuItem value="Published">Published</MenuItem>
-              <MenuItem value="Cancelled">Cancelled</MenuItem>
-              <MenuItem value="Archived">Archived</MenuItem>
+              <MenuItem value="Draft">Taslak</MenuItem>
+              <MenuItem value="Published">Yayinda</MenuItem>
+              <MenuItem value="Cancelled">Iptal Edildi</MenuItem>
+              <MenuItem value="Archived">Arsivlendi</MenuItem>
             </TextField>
             <TextField
               select
@@ -815,7 +846,7 @@ export default function EventsPage() {
                   events.map((event) => (
                     <TableRow key={event.id} hover>
                       <TableCell>{event.title || event.name}</TableCell>
-                      <TableCell>{normalizeEventStatus(event.status)}</TableCell>
+                      <TableCell>{getEventStatusLabel(normalizeEventStatus(event.status))}</TableCell>
                       <TableCell>{event.categoryName || '-'}</TableCell>
                       <TableCell>{event.venueName || '-'}</TableCell>
                       <TableCell>
@@ -1044,6 +1075,27 @@ export default function EventsPage() {
                     cursor: 'zoom-in'
                   }}
                 />
+              )}
+              {!coverPreviewUrl && editingId && existingCoverUrl && (
+                <Stack sx={{ gap: 0.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Bu etkinlikte aktif kapak mevcut.
+                  </Typography>
+                  <Box
+                    component="img"
+                    src={existingCoverUrl}
+                    alt="Mevcut kapak"
+                    onClick={() => openImagePreview(existingCoverUrl, 'Mevcut Kapak')}
+                    sx={{
+                      width: 96,
+                      height: 96,
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      cursor: 'zoom-in'
+                    }}
+                  />
+                </Stack>
               )}
             </Stack>
             <Stack sx={{ gap: 1 }}>
