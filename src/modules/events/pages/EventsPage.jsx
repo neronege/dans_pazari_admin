@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -108,6 +108,10 @@ function normalizeEventStatus(value) {
   return 'Draft';
 }
 
+function resolvePhotoUrl(photo) {
+  return photo?.imageUrl || photo?.photoUrl || photo?.url || photo?.fileUrl || photo?.thumbnailUrl || '';
+}
+
 export default function EventsPage() {
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('');
@@ -130,6 +134,7 @@ export default function EventsPage() {
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [existingBannerUrl, setExistingBannerUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
   const fileInputRef = useRef(null);
   const bannerInputRef = useRef(null);
 
@@ -141,6 +146,52 @@ export default function EventsPage() {
   });
 
   const categoryOptions = useMemo(() => flattenCategories(categoryTree), [categoryTree]);
+  const coverPreviewUrl = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : ''), [coverFile]);
+  const bannerPreviewUrl = useMemo(() => (bannerFile ? URL.createObjectURL(bannerFile) : ''), [bannerFile]);
+  const galleryPreviewItems = useMemo(
+    () => galleryFiles.map((file) => ({ name: file.name, previewUrl: URL.createObjectURL(file) })),
+    [galleryFiles]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (coverPreviewUrl) {
+        URL.revokeObjectURL(coverPreviewUrl);
+      }
+    };
+  }, [coverPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreviewUrl) {
+        URL.revokeObjectURL(bannerPreviewUrl);
+      }
+    };
+  }, [bannerPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      galleryPreviewItems.forEach((item) => {
+        URL.revokeObjectURL(item.previewUrl);
+      });
+    };
+  }, [galleryPreviewItems]);
+
+  const openImagePreview = (url, title) => {
+    if (!url) {
+      return;
+    }
+
+    setImagePreview({
+      open: true,
+      url,
+      title: title || 'Gorsel Onizleme'
+    });
+  };
+
+  const closeImagePreview = () => {
+    setImagePreview({ open: false, url: '', title: '' });
+  };
 
   const openCreateDialog = () => {
     setEditingId(null);
@@ -978,6 +1029,22 @@ export default function EventsPage() {
                   }}
                 />
               </Button>
+              {coverPreviewUrl && (
+                <Box
+                  component="img"
+                  src={coverPreviewUrl}
+                  alt="Kapak önizleme"
+                  onClick={() => openImagePreview(coverPreviewUrl, 'Kapak Onizleme')}
+                  sx={{
+                    width: 96,
+                    height: 96,
+                    objectFit: 'cover',
+                    borderRadius: 1,
+                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                    cursor: 'zoom-in'
+                  }}
+                />
+              )}
             </Stack>
             <Stack sx={{ gap: 1 }}>
               <Typography variant="subtitle2">Galeri Fotoğrafları (opsiyonel)</Typography>
@@ -1000,19 +1067,63 @@ export default function EventsPage() {
                   {galleryFiles.length} dosya seçildi.
                 </Typography>
               )}
+              {galleryPreviewItems.length > 0 && (
+                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                  {galleryPreviewItems.map((item) => (
+                    <Box
+                      key={item.previewUrl}
+                      component="img"
+                      src={item.previewUrl}
+                      alt={item.name}
+                      title={item.name}
+                      onClick={() => openImagePreview(item.previewUrl, item.name)}
+                      sx={{
+                        width: 72,
+                        height: 72,
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        border: (theme) => `1px solid ${theme.palette.divider}`,
+                        cursor: 'zoom-in'
+                      }}
+                    />
+                  ))}
+                </Stack>
+              )}
               {editingId && existingPhotos.length > 0 && (
                 <Stack sx={{ gap: 1 }}>
                   <Typography variant="body2">Mevcut Galeri</Typography>
-                  {existingPhotos.map((photo) => (
-                    <Stack key={photo.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2">
-                        #{photo.sortOrder ?? '-'} - {photo.imageKey || photo.id}
-                      </Typography>
-                      <Button size="small" color="error" onClick={() => onDeletePhoto(photo.id)}>
-                        Sil
-                      </Button>
-                    </Stack>
-                  ))}
+                  {existingPhotos.map((photo) => {
+                    const photoUrl = resolvePhotoUrl(photo);
+
+                    return (
+                      <Stack key={photo.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                          {photoUrl ? (
+                            <Box
+                              component="img"
+                              src={photoUrl}
+                              alt={photo.imageKey || `Foto ${photo.id}`}
+                              onClick={() => openImagePreview(photoUrl, photo.imageKey || `Foto ${photo.id}`)}
+                              sx={{
+                                width: 56,
+                                height: 56,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                border: (theme) => `1px solid ${theme.palette.divider}`,
+                                cursor: 'zoom-in'
+                              }}
+                            />
+                          ) : null}
+                          <Typography variant="body2">
+                            #{photo.sortOrder ?? '-'} - {photo.imageKey || photo.id}
+                          </Typography>
+                        </Stack>
+                        <Button size="small" color="error" onClick={() => onDeletePhoto(photo.id)}>
+                          Sil
+                        </Button>
+                      </Stack>
+                    );
+                  })}
                 </Stack>
               )}
             </Stack>
@@ -1031,10 +1142,42 @@ export default function EventsPage() {
                   }}
                 />
               </Button>
+              {bannerPreviewUrl && (
+                <Box
+                  component="img"
+                  src={bannerPreviewUrl}
+                  alt="Banner önizleme"
+                  onClick={() => openImagePreview(bannerPreviewUrl, 'Banner Onizleme')}
+                  sx={{
+                    width: 140,
+                    height: 80,
+                    objectFit: 'cover',
+                    borderRadius: 1,
+                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                    cursor: 'zoom-in'
+                  }}
+                />
+              )}
               {editingId && existingBannerUrl && (
-                <Typography variant="body2" color="text.secondary">
-                  Bu etkinlikte aktif banner mevcut.
-                </Typography>
+                <Stack sx={{ gap: 0.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Bu etkinlikte aktif banner mevcut.
+                  </Typography>
+                  <Box
+                    component="img"
+                    src={existingBannerUrl}
+                    alt="Mevcut banner"
+                    onClick={() => openImagePreview(existingBannerUrl, 'Mevcut Banner')}
+                    sx={{
+                      width: 140,
+                      height: 80,
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      cursor: 'zoom-in'
+                    }}
+                  />
+                </Stack>
               )}
             </Stack>
             <FormControlLabel
@@ -1086,6 +1229,23 @@ export default function EventsPage() {
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={imagePreview.open} onClose={closeImagePreview} fullWidth maxWidth="md">
+        <DialogTitle>{imagePreview.title || 'Gorsel Onizleme'}</DialogTitle>
+        <DialogContent>
+          {imagePreview.url ? (
+            <Box
+              component="img"
+              src={imagePreview.url}
+              alt={imagePreview.title || 'Gorsel Onizleme'}
+              sx={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 1 }}
+            />
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeImagePreview}>Kapat</Button>
         </DialogActions>
       </Dialog>
 

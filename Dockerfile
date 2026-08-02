@@ -12,7 +12,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./package.json
 COPY . .
 ARG NEXT_PUBLIC_API_BASE_URL=https://api.museticket.com
+ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
 # yarn build lockfile'ı yeniden çözümler; next'i doğrudan çalıştır
 RUN ./node_modules/.bin/next build
