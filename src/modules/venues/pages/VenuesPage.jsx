@@ -631,16 +631,35 @@ export default function VenuesPage() {
               {editingId && existingPhotos.length > 0 && (
                 <Stack sx={{ gap: 1 }}>
                   <Typography variant="body2">Mevcut Fotoğraflar</Typography>
-                  {existingPhotos.map((photo) => (
-                    <Stack key={photo.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2">
-                        #{photo.sortOrder ?? '-'} - {photo.imageKey || photo.id}
-                      </Typography>
-                      <Button size="small" color="error" onClick={() => removeExistingPhoto(photo.id)}>
-                        Sil
-                      </Button>
-                    </Stack>
-                  ))}
+                  {existingPhotos.map((photo) => {
+                    const photoUrl = photo.imageUrl || photo.url || '';
+                    return (
+                      <Stack key={photo.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                          {photoUrl ? (
+                            <Box
+                              component="img"
+                              src={photoUrl}
+                              alt={photo.imageKey || photo.id}
+                              sx={{
+                                width: 56,
+                                height: 56,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                border: (theme) => `1px solid ${theme.palette.divider}`
+                              }}
+                            />
+                          ) : null}
+                          <Typography variant="body2">
+                            #{photo.sortOrder ?? '-'} - {photo.imageKey || photo.id}
+                          </Typography>
+                        </Stack>
+                        <Button size="small" color="error" onClick={() => removeExistingPhoto(photo.id)}>
+                          Sil
+                        </Button>
+                      </Stack>
+                    );
+                  })}
                 </Stack>
               )}
 
