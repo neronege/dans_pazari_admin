@@ -19,6 +19,8 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import MainCard from 'components/MainCard';
 import {
+  createLegalPage,
+  deleteLegalPage,
   getLegalPageDetail,
   publishLegalPage,
   unpublishLegalPage,
@@ -30,6 +32,7 @@ import {
   buildTranslationsPayload,
   createEmptyTranslations,
   hydrateTranslations,
+  toContentSlug,
   trAsRoot,
   updateLocaleField
 } from 'shared/i18n/contentLocales';
@@ -47,17 +50,34 @@ const SLUG_LABELS = {
 export default function LegalPagesPage() {
   const { pages, isLoading, error, refresh } = useLegalPages();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isCreate, setIsCreate] = useState(false);
   const [editingSlug, setEditingSlug] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugTouched, setSlugTouched] = useState(false);
   const [translations, setTranslations] = useState(createEmptyTranslations(LEGAL_FIELDS));
   const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  const openEdit = async (slug) => {
+  const openCreate = () => {
+    setIsCreate(true);
+    setEditingSlug('');
+    setSlug('');
+    setSlugTouched(false);
+    setTranslations(createEmptyTranslations(LEGAL_FIELDS));
+    setLocaleTab('tr');
+    setActionError('');
+    setDialogOpen(true);
+  };
+
+  const openEdit = async (pageSlug) => {
     try {
       setActionError('');
-      const detail = await getLegalPageDetail(slug);
-      setEditingSlug(slug);
+      const detail = await getLegalPageDetail(pageSlug);
+      setIsCreate(false);
+      setEditingSlug(pageSlug);
+      setSlug(detail?.slug || pageSlug);
+      setSlugTouched(true);
       setTranslations(
         hydrateTranslations(detail?.translations, LEGAL_FIELDS, {
           title: detail?.title,
@@ -71,18 +91,43 @@ export default function LegalPagesPage() {
     }
   };
 
+  const onTitleChange = (locale, value) => {
+    setTranslations((prev) => {
+      const next = updateLocaleField(prev, locale, 'title', value);
+      if (locale === 'tr' && !slugTouched) {
+        setSlug(toContentSlug(value));
+      }
+      return next;
+    });
+  };
+
   const submitForm = async () => {
     setSaving(true);
     setActionError('');
 
     const payloadTranslations = buildTranslationsPayload(translations, Object.keys(LEGAL_FIELDS), 'title');
     const root = trAsRoot(translations, { title: 'title', bodyHtml: 'bodyHtml' });
+    const normalizedSlug = toContentSlug(slug || root.title || '');
+
+    if (!normalizedSlug) {
+      setActionError('Slug zorunludur.');
+      setSaving(false);
+      return;
+    }
+
+    const payload = {
+      ...root,
+      bodyHtml: root.bodyHtml || '',
+      slug: normalizedSlug,
+      translations: payloadTranslations
+    };
 
     try {
-      await upsertLegalPage(editingSlug, {
-        ...root,
-        translations: payloadTranslations
-      });
+      if (isCreate) {
+        await createLegalPage(payload);
+      } else {
+        await upsertLegalPage(editingSlug, payload);
+      }
       setDialogOpen(false);
       await refresh();
     } catch (requestError) {
@@ -106,13 +151,36 @@ export default function LegalPagesPage() {
     }
   };
 
+  const removePage = async (page) => {
+    const label = SLUG_LABELS[page.slug] || page.title || page.slug;
+    const confirmed = window.confirm(`“${label}” sayfasını silmek istiyor musunuz?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionError('');
+      await deleteLegalPage(page.slug);
+      await refresh();
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    }
+  };
+
   return (
     <>
-      <MainCard title="Yasal Sayfalar">
+      <MainCard
+        title="Yasal Sayfalar"
+        secondary={
+          <Button variant="contained" onClick={openCreate}>
+            Yeni Sayfa
+          </Button>
+        }
+      >
         <Stack sx={{ gap: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Sabit slug’lar (kvkk, çerez, kullanım koşulları, mesafeli satış). Slug dil bağımsız; yalnızca başlık ve içerik
-            çevrilir.
+            İstediğiniz yasal sayfayı ekleyebilir, slug/başlık düzenleyebilir veya silebilirsiniz. Slug dil bağımsızdır;
+            başlık ve içerik çevrilir.
           </Typography>
 
           {error && <Alert severity="error">Yasal sayfalar alınamadı.</Alert>}
@@ -138,10 +206,18 @@ export default function LegalPagesPage() {
                   </TableRow>
                 )}
 
+                {!isLoading && pages.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      Henüz yasal sayfa yok.
+                    </TableCell>
+                  </TableRow>
+                )}
+
                 {!isLoading &&
                   pages.map((page) => (
                     <TableRow key={page.slug} hover>
-                      <TableCell>{SLUG_LABELS[page.slug] || page.slug}</TableCell>
+                      <TableCell>{SLUG_LABELS[page.slug] || page.title || page.slug}</TableCell>
                       <TableCell>{page.slug}</TableCell>
                       <TableCell>{page.title || '-'}</TableCell>
                       <TableCell>
@@ -155,8 +231,20 @@ export default function LegalPagesPage() {
                         <Button size="small" onClick={() => openEdit(page.slug)}>
                           Düzenle
                         </Button>
-                        <Button size="small" onClick={() => togglePublish(page)} disabled={!page.title}>
+                        <Button
+                          size="small"
+                          onClick={() => togglePublish(page)}
+                          disabled={page.existsInDatabase === false}
+                        >
                           {page.isPublished ? 'Yayından Kaldır' : 'Yayınla'}
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => removePage(page)}
+                          disabled={page.existsInDatabase === false}
+                        >
+                          Sil
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -168,14 +256,19 @@ export default function LegalPagesPage() {
       </MainCard>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>
-          {SLUG_LABELS[editingSlug] || editingSlug} — Düzenle
-        </DialogTitle>
+        <DialogTitle>{isCreate ? 'Yasal Sayfa Oluştur' : 'Yasal Sayfa Düzenle'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Slug: <strong>{editingSlug}</strong> (sabit)
-            </Typography>
+            <TextField
+              label="Slug"
+              value={slug}
+              onChange={(event) => {
+                setSlugTouched(true);
+                setSlug(toContentSlug(event.target.value));
+              }}
+              helperText="URL anahtarı (örn. kvkk, gizlilik-politikasi). Dil bağımsızdır."
+              required
+            />
             <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
               {(locale) => {
                 const row = translations?.[locale] || LEGAL_FIELDS;
@@ -184,9 +277,7 @@ export default function LegalPagesPage() {
                     <TextField
                       label="Başlık"
                       value={row.title}
-                      onChange={(event) =>
-                        setTranslations((prev) => updateLocaleField(prev, locale, 'title', event.target.value))
-                      }
+                      onChange={(event) => onTitleChange(locale, event.target.value)}
                       required={locale === 'tr'}
                     />
                     <TextField
@@ -209,7 +300,7 @@ export default function LegalPagesPage() {
           <Button
             variant="contained"
             onClick={submitForm}
-            disabled={saving || !String(translations?.tr?.title || '').trim()}
+            disabled={saving || !String(translations?.tr?.title || '').trim() || !String(slug || '').trim()}
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>

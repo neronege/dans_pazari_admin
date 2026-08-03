@@ -1,6 +1,6 @@
 import { endpoints, httpClient } from 'shared/api';
 
-function normalizeListPayload(payload) {
+function normalizeList(payload) {
   if (Array.isArray(payload)) {
     return payload;
   }
@@ -14,7 +14,7 @@ function normalizeListPayload(payload) {
 
 export async function getLegalPages() {
   const response = await httpClient.get(endpoints.admin.legal.list);
-  return normalizeListPayload(response.data);
+  return normalizeList(response.data);
 }
 
 export async function getLegalPageDetail(slug) {
@@ -22,9 +22,18 @@ export async function getLegalPageDetail(slug) {
   return response.data;
 }
 
+export async function createLegalPage(payload) {
+  const response = await httpClient.post(endpoints.admin.legal.list, payload);
+  return response.data;
+}
+
 export async function upsertLegalPage(slug, payload) {
   const response = await httpClient.put(endpoints.admin.legal.detail(slug), payload);
   return response.data;
+}
+
+export async function deleteLegalPage(slug) {
+  await httpClient.delete(endpoints.admin.legal.detail(slug));
 }
 
 export async function publishLegalPage(slug) {
