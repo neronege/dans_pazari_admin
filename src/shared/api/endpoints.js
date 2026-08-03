@@ -73,7 +73,9 @@ export const endpoints = {
       postPublish: (id) => `/admin/blog/posts/${id}/publish`,
       postUnpublish: (id) => `/admin/blog/posts/${id}/unpublish`,
       postArchive: (id) => `/admin/blog/posts/${id}/archive`,
-      postCover: (id) => `/admin/blog/posts/${id}/cover`
+      postCover: (id) => `/admin/blog/posts/${id}/cover`,
+      postPhotos: (id) => `/admin/blog/posts/${id}/photos`,
+      postPhotoDetail: (id, photoId) => `/admin/blog/posts/${id}/photos/${photoId}`
     },
     legal: {
       list: '/admin/legal',

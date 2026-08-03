@@ -80,6 +80,21 @@ export async function deleteBlogPostCover(postId) {
   await httpClient.delete(endpoints.admin.blog.postCover(postId));
 }
 
+export async function uploadBlogPostPhotos(postId, files) {
+  const formData = new FormData();
+  (files || []).forEach((file) => {
+    formData.append('Photos', file);
+  });
+
+  const response = await httpClient.post(endpoints.admin.blog.postPhotos(postId), formData);
+  return response.data;
+}
+
+export async function deleteBlogPostPhoto(postId, photoId) {
+  const response = await httpClient.delete(endpoints.admin.blog.postPhotoDetail(postId, photoId));
+  return response.data;
+}
+
 export async function deleteBlogPost(postId) {
   await httpClient.delete(endpoints.admin.blog.postDetail(postId));
 }
