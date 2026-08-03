@@ -10,7 +10,13 @@ import { APP_DEFAULT_PATH } from 'config';
 
 export default function LogoSection({ reverse, isIcon, sx, to }) {
   return (
-    <ButtonBase disableRipple component={NextLink} href={to || APP_DEFAULT_PATH} sx={sx} aria-label="Logo">
+        <ButtonBase
+          disableRipple
+          component={NextLink}
+          href={to || APP_DEFAULT_PATH}
+          sx={{ minHeight: '150px', ...sx }}
+          aria-label="Logo"
+        >
       {isIcon ? <LogoIcon /> : <Logo reverse={reverse} />}
     </ButtonBase>
   );
