@@ -1,4 +1,4 @@
-import { FileProtectOutlined } from '@ant-design/icons';
+import { FileProtectOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 
 const legalMenu = {
   id: 'group-legal',
@@ -12,6 +12,13 @@ const legalMenu = {
       type: 'item',
       url: '/legal',
       icon: FileProtectOutlined
+    },
+    {
+      id: 'faq',
+      title: 'SSS (FAQ)',
+      type: 'item',
+      url: '/faq',
+      icon: QuestionCircleOutlined
     }
   ]
 };

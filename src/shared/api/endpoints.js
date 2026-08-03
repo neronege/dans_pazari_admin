@@ -83,6 +83,12 @@ export const endpoints = {
       publish: (slug) => `/admin/legal/${slug}/publish`,
       unpublish: (slug) => `/admin/legal/${slug}/unpublish`
     },
+    faq: {
+      list: '/admin/faq',
+      detail: (id) => `/admin/faq/${id}`,
+      publish: (id) => `/admin/faq/${id}/publish`,
+      unpublish: (id) => `/admin/faq/${id}/unpublish`
+    },
     raffles: {
       list: '/admin/raffles',
       detail: (id) => `/admin/raffles/${id}`,
