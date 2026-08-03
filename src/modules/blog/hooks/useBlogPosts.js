@@ -30,12 +30,12 @@ export default function useBlogPosts(filters = {}) {
     }
   );
 
-  const { data: categoriesData } = useSWR('admin/blog/categories', getBlogCategories, {
+  const { data: categoriesData, mutate: mutateCategories } = useSWR('admin/blog/categories', getBlogCategories, {
     revalidateOnFocus: false,
     shouldRetryOnError: false
   });
 
-  const { data: tagsData } = useSWR('admin/blog/tags', getBlogTags, {
+  const { data: tagsData, mutate: mutateTags } = useSWR('admin/blog/tags', getBlogTags, {
     revalidateOnFocus: false,
     shouldRetryOnError: false
   });
@@ -49,6 +49,7 @@ export default function useBlogPosts(filters = {}) {
     tags: tagsData || EMPTY_LIST,
     isLoading,
     error,
-    refresh: mutate
+    refresh: () => mutate(),
+    refreshTaxonomy: () => Promise.all([mutateCategories(), mutateTags()])
   };
 }

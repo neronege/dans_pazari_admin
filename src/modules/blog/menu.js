@@ -1,4 +1,4 @@
-import { ReadOutlined } from '@ant-design/icons';
+import { ReadOutlined, TagsOutlined, AppstoreOutlined } from '@ant-design/icons';
 
 const blogMenu = {
   id: 'group-blog',
@@ -12,6 +12,20 @@ const blogMenu = {
       type: 'item',
       url: '/blog',
       icon: ReadOutlined
+    },
+    {
+      id: 'blog-categories',
+      title: 'Blog Kategorileri',
+      type: 'item',
+      url: '/blog/categories',
+      icon: AppstoreOutlined
+    },
+    {
+      id: 'blog-tags',
+      title: 'Blog Etiketleri',
+      type: 'item',
+      url: '/blog/tags',
+      icon: TagsOutlined
     }
   ]
 };

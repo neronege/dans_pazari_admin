@@ -92,7 +92,7 @@ export default function BlogPostsPage() {
   const [photoWarnings, setPhotoWarnings] = useState([]);
   const [photoPickError, setPhotoPickError] = useState('');
 
-  const { posts, totalCount, categories, tags, isLoading, error, refresh } = useBlogPosts({
+  const { posts, totalCount, categories, tags, isLoading, error, refresh, refreshTaxonomy } = useBlogPosts({
     page,
     pageSize: 20,
     search,
@@ -113,7 +113,8 @@ export default function BlogPostsPage() {
     [pendingFiles]
   );
 
-  const openCreate = () => {
+  const openCreate = async () => {
+    await refreshTaxonomy();
     setEditingId(null);
     setForm({
       ...initialForm,
@@ -132,6 +133,7 @@ export default function BlogPostsPage() {
   const openEdit = async (postId) => {
     try {
       setActionError('');
+      await refreshTaxonomy();
       const detail = await getBlogPostDetail(postId);
       const hydrated = hydrateTranslations(detail?.translations, POST_FIELDS, {
         title: detail?.title,
@@ -559,6 +561,11 @@ export default function BlogPostsPage() {
               label="Kategori"
               value={form.categoryId}
               onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+              helperText={
+                categories.length === 0
+                  ? 'Liste boş. Önce Blog → Blog Kategorileri menüsünden kategori ekleyin.'
+                  : undefined
+              }
             >
               <MenuItem value="">Seçiniz</MenuItem>
               {categories.map((category) => (
@@ -573,6 +580,11 @@ export default function BlogPostsPage() {
               value={form.tagIds}
               onChange={(event) => setForm((prev) => ({ ...prev, tagIds: event.target.value }))}
               SelectProps={{ multiple: true }}
+              helperText={
+                tags.length === 0
+                  ? 'Liste boş. Önce Blog → Blog Etiketleri menüsünden etiket ekleyin.'
+                  : undefined
+              }
             >
               {tags.map((tag) => (
                 <MenuItem key={tag.id} value={tag.id}>

@@ -21,9 +21,37 @@ export async function getBlogCategories() {
   return normalizeArrayPayload(response.data, 'categories');
 }
 
+export async function createBlogCategory(payload) {
+  const response = await httpClient.post(endpoints.admin.blog.categories, payload);
+  return response.data;
+}
+
+export async function updateBlogCategory(id, payload) {
+  const response = await httpClient.put(endpoints.admin.blog.categoryDetail(id), payload);
+  return response.data;
+}
+
+export async function deleteBlogCategory(id) {
+  await httpClient.delete(endpoints.admin.blog.categoryDetail(id));
+}
+
 export async function getBlogTags() {
   const response = await httpClient.get(endpoints.admin.blog.tags);
   return normalizeArrayPayload(response.data, 'tags');
+}
+
+export async function createBlogTag(payload) {
+  const response = await httpClient.post(endpoints.admin.blog.tags, payload);
+  return response.data;
+}
+
+export async function updateBlogTag(id, payload) {
+  const response = await httpClient.put(endpoints.admin.blog.tagDetail(id), payload);
+  return response.data;
+}
+
+export async function deleteBlogTag(id) {
+  await httpClient.delete(endpoints.admin.blog.tagDetail(id));
 }
 
 export async function getBlogPosts(params = {}) {
