@@ -15,14 +15,16 @@ import AuthBackground from './AuthBackground';
 
 // ==============================|| AUTHENTICATION - WRAPPER ||============================== //
 
-export default function AuthWrapper({ children }) {
+export default function AuthWrapper({ children, showLogo = true }) {
   return (
     <Box sx={{ minHeight: '100vh' }}>
       <AuthBackground />
       <Stack sx={{ minHeight: '100vh', justifyContent: 'flex-end' }}>
-        <Box sx={{ px: 3, mt: 3 }} size={12}>
-          <Logo href="/" />
-        </Box>
+        {showLogo && (
+          <Box sx={{ px: 3, mt: 3 }} size={12}>
+            <Logo href="/" />
+          </Box>
+        )}
         <Box size={12}>
           <Grid
             container
@@ -41,4 +43,4 @@ export default function AuthWrapper({ children }) {
   );
 }
 
-AuthWrapper.propTypes = { children: PropTypes.node };
+AuthWrapper.propTypes = { children: PropTypes.node, showLogo: PropTypes.bool };

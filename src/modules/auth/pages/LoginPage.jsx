@@ -7,7 +7,7 @@ import AuthLogin from 'sections/auth/auth-forms/AuthLogin';
 
 export default function LoginPage() {
   return (
-    <AuthWrapper>
+    <AuthWrapper showLogo={false}>
       <Grid container spacing={3}>
         <Grid size={12}>
           <Stack

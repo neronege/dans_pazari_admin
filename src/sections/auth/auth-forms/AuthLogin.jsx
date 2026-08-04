@@ -2,9 +2,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-// next
-import Link from 'next/link';
-
 // material-ui
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -13,7 +10,6 @@ import FormHelperText from '@mui/material/FormHelperText';
 import Grid from '@mui/material/Grid';
 import InputAdornment from '@mui/material/InputAdornment';
 import InputLabel from '@mui/material/InputLabel';
-import Links from '@mui/material/Link';
 import OutlinedInput from '@mui/material/OutlinedInput';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
@@ -136,7 +132,7 @@ export default function AuthLogin() {
               </Grid>
 
               <Grid sx={{ mt: -1 }} size={12}>
-                <Stack direction="row" sx={{ gap: 2, justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Stack direction="row" sx={{ gap: 2, alignItems: 'baseline' }}>
                   <FormControlLabel
                     control={
                       <Checkbox
@@ -149,10 +145,6 @@ export default function AuthLogin() {
                     }
                     label={<Typography variant="h6">Beni hatirla</Typography>}
                   />
-
-                  <Links variant="h6" component={Link} href="/forgot-password" sx={{ color: 'text.primary' }} underline="none">
-                    Sifremi Unuttum?
-                  </Links>
                 </Stack>
               </Grid>
               <Grid size={12}>
