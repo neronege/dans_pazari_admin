@@ -56,7 +56,7 @@ const initialForm = {
 const GOOGLE_MAPS_SCRIPT_ID = 'dp-google-maps-script';
 const DEFAULT_MAP_CENTER = { lat: 41.0082, lng: 28.9784 };
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
-const MAX_FILE_COUNT = 20;
+const MAX_FILE_COUNT = 1;
 const MAX_TOTAL_REQUEST_BYTES = 20 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
@@ -299,12 +299,12 @@ export default function VenuesPage() {
   };
 
   const validateAndSetPhotos = (files) => {
-    const nextFiles = Array.from(files || []);
+    const nextFiles = Array.from(files || []).slice(0, MAX_FILE_COUNT);
     const totalCount = nextFiles.length + existingPhotos.length;
     const totalBytes = nextFiles.reduce((sum, file) => sum + Number(file?.size || 0), 0);
 
     if (totalCount > MAX_FILE_COUNT) {
-      setActionError(`Maksimum ${MAX_FILE_COUNT} fotoğraf yükleyebilirsiniz.`);
+      setActionError('Mekana yalnızca 1 fotoğraf ekleyebilirsiniz.');
       return;
     }
 
@@ -589,7 +589,12 @@ export default function VenuesPage() {
               value={form.district}
               onChange={(event) => setForm((prev) => ({ ...prev, district: event.target.value }))}
             />
-            <TextField label="Şehir" value={form.city} slotProps={{ input: { readOnly: true } }} required />
+            <TextField
+              label="Şehir"
+              value={form.city}
+              onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+              required
+            />
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
               <TextField type="number" label="Enlem" value={form.latitude} slotProps={{ input: { readOnly: true } }} fullWidth />
               <TextField type="number" label="Boylam" value={form.longitude} slotProps={{ input: { readOnly: true } }} fullWidth />
@@ -609,7 +614,6 @@ export default function VenuesPage() {
                 <input
                   type="file"
                   hidden
-                  multiple
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={(event) => validateAndSetPhotos(event.target.files)}
                 />
@@ -665,7 +669,7 @@ export default function VenuesPage() {
 
               {editingId && selectedPhotos.length > 0 && (
                 <Button variant="outlined" onClick={uploadExtraPhotos}>
-                  Seçilen Fotoğrafları Ekle
+                  Seçilen Fotoğrafı Ekle
                 </Button>
               )}
             </Stack>
