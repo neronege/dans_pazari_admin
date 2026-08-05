@@ -38,6 +38,7 @@ export const endpoints = {
       unpublish: (id) => `/admin/events/${id}/unpublish`,
       cancel: (id) => `/admin/events/${id}/cancel`,
       featured: (id) => `/admin/events/${id}/featured`,
+      sortOrder: (id) => `/admin/events/${id}/sort-order`,
       cover: (id) => `/admin/events/${id}/cover`,
       photos: (id) => `/admin/events/${id}/photos`,
       photoDetail: (id, photoId) => `/admin/events/${id}/photos/${photoId}`,

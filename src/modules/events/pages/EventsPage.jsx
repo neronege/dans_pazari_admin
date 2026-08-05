@@ -9,10 +9,8 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -44,12 +42,15 @@ import {
   uploadEventCover,
   uploadEventBanner,
   uploadEventPhotos,
-  setEventFeatured,
+  setEventSortOrder,
   unpublishEvent,
   updateEvent
 } from 'modules/events/api/events.service';
 import useEvents from 'modules/events/hooks/useEvents';
 import useSWR from 'swr';
+import ArrowUpOutlined from '@ant-design/icons/ArrowUpOutlined';
+import ArrowDownOutlined from '@ant-design/icons/ArrowDownOutlined';
+import IconButton from '@mui/material/IconButton';
 import { getHumanReadableError } from 'shared/api';
 import {
   buildTranslationsPayload,
@@ -73,7 +74,7 @@ const initialForm = {
   translations: createEmptyTranslations(EVENT_FIELDS),
   categoryId: '',
   venueId: '',
-  isFeatured: false,
+  sortOrder: 0,
   organizerFirstName: '',
   organizerLastName: '',
   organizerAbout: ''
@@ -255,7 +256,7 @@ export default function EventsPage() {
         }),
         categoryId: detail?.categoryId || '',
         venueId: detail?.venueId || '',
-        isFeatured: detail?.isFeatured ?? false,
+        sortOrder: Number.isFinite(detail?.sortOrder) ? detail.sortOrder : 0,
         organizerFirstName: detail?.organizerFirstName || '',
         organizerLastName: detail?.organizerLastName || '',
         organizerAbout: detail?.organizerAbout || ''
@@ -307,7 +308,7 @@ export default function EventsPage() {
       ...root,
       categoryId: form.categoryId,
       venueId: form.venueId,
-      isFeatured: Boolean(form.isFeatured),
+      sortOrder: Number.isFinite(Number(form.sortOrder)) ? Number(form.sortOrder) : 0,
       organizerFirstName: form.organizerFirstName.trim() || null,
       organizerLastName: form.organizerLastName.trim() || null,
       organizerAbout: form.organizerAbout.trim() || null,
@@ -359,10 +360,20 @@ export default function EventsPage() {
     }
   };
 
-  const onFeaturedToggle = async (event) => {
+  const onMoveSort = async (event, direction) => {
+    const index = events.findIndex((item) => item.id === event.id);
+    const swapIndex = index + direction;
+    if (index < 0 || swapIndex < 0 || swapIndex >= events.length) {
+      return;
+    }
+
+    const reordered = [...events];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(swapIndex, 0, moved);
+
     try {
       setActionError('');
-      await setEventFeatured(event.id, !event.isFeatured);
+      await Promise.all(reordered.map((item, order) => setEventSortOrder(item.id, order)));
       await refresh();
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -815,13 +826,13 @@ export default function EventsPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell width={90}>Sıra</TableCell>
                   <TableCell>Başlık</TableCell>
                   <TableCell>Durum</TableCell>
                   <TableCell>Kategori</TableCell>
                   <TableCell>Mekan</TableCell>
                   <TableCell>Kapak</TableCell>
                   <TableCell>Banner</TableCell>
-                  <TableCell>Öne Çıkan</TableCell>
                   <TableCell align="right">İşlemler</TableCell>
                 </TableRow>
               </TableHead>
@@ -843,8 +854,29 @@ export default function EventsPage() {
                 )}
 
                 {!isLoading &&
-                  events.map((event) => (
+                  events.map((event, index) => (
                     <TableRow key={event.id} hover>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          <IconButton
+                            size="small"
+                            disabled={index === 0}
+                            onClick={() => onMoveSort(event, -1)}
+                            aria-label="Yukarı taşı"
+                          >
+                            <ArrowUpOutlined />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            disabled={index === events.length - 1}
+                            onClick={() => onMoveSort(event, 1)}
+                            aria-label="Aşağı taşı"
+                          >
+                            <ArrowDownOutlined />
+                          </IconButton>
+                          <Typography variant="body2">{event.sortOrder ?? index}</Typography>
+                        </Stack>
+                      </TableCell>
                       <TableCell>{event.title || event.name}</TableCell>
                       <TableCell>{getEventStatusLabel(normalizeEventStatus(event.status))}</TableCell>
                       <TableCell>{event.categoryName || '-'}</TableCell>
@@ -885,16 +917,12 @@ export default function EventsPage() {
                           '-'
                         )}
                       </TableCell>
-                      <TableCell>{event.isFeatured ? 'Evet' : 'Hayır'}</TableCell>
                       <TableCell align="right">
                         <Button size="small" onClick={() => openEditDialog(event.id)}>
                           Düzenle
                         </Button>
                         <Button size="small" onClick={() => onPublishToggle(event)}>
                           {normalizeEventStatus(event.status) === 'Published' ? 'Yayından Kaldır' : 'Yayınla'}
-                        </Button>
-                        <Button size="small" onClick={() => onFeaturedToggle(event)}>
-                          {event.isFeatured ? 'Öne Çıkarmayı Kaldır' : 'Öne Çıkar'}
                         </Button>
                         <Button size="small" onClick={() => requestCoverUpload(event.id)}>
                           Kapak Yükle
@@ -1232,14 +1260,13 @@ export default function EventsPage() {
                 </Stack>
               )}
             </Stack>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={form.isFeatured}
-                  onChange={(event) => setForm((prev) => ({ ...prev, isFeatured: event.target.checked }))}
-                />
-              }
-              label="Öne Çıkan"
+            <TextField
+              label="Sıra"
+              type="number"
+              value={form.sortOrder}
+              onChange={(event) => setForm((prev) => ({ ...prev, sortOrder: Number(event.target.value) }))}
+              helperText="Küçük numara listede önce görünür."
+              inputProps={{ min: 0 }}
             />
             <Typography variant="subtitle2">Düzenleyen Kişi (opsiyonel)</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>

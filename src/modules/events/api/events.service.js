@@ -52,6 +52,10 @@ export async function setEventFeatured(eventId, isFeatured) {
   await httpClient.patch(endpoints.admin.events.featured(eventId), { isFeatured });
 }
 
+export async function setEventSortOrder(eventId, sortOrder) {
+  await httpClient.patch(endpoints.admin.events.sortOrder(eventId), { sortOrder });
+}
+
 export async function deleteEvent(eventId) {
   await httpClient.delete(endpoints.admin.events.detail(eventId));
 }

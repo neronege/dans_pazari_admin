@@ -5,6 +5,12 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import { CONTENT_LOCALES } from 'shared/i18n/contentLocales';
 
+const LOCALE_FLAGS = {
+  tr: '/assets/images/lang/turkey.png',
+  ru: '/assets/images/lang/russia.png',
+  en: '/assets/images/lang/united-kingdom.png'
+};
+
 /**
  * İçerik dili sekmeleri (TR / EN / RU).
  * @param {string} value — aktif locale
@@ -25,7 +31,17 @@ export default function TranslationLocaleTabs({ value, onChange, children }) {
           <Tab
             key={locale.code}
             value={locale.code}
-            label={locale.required ? `${locale.label} *` : locale.label}
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box
+                  component="img"
+                  src={LOCALE_FLAGS[locale.code]}
+                  alt={locale.label}
+                  sx={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }}
+                />
+                <span>{locale.required ? `${locale.label} *` : locale.label}</span>
+              </Box>
+            }
             sx={{ minHeight: 40, textTransform: 'none' }}
           />
         ))}
