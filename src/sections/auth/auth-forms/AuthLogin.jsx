@@ -45,8 +45,8 @@ export default function AuthLogin() {
     <>
       <Formik
         initialValues={{
-          email: 'admin@biletplatform.local',
-          password: 'Admin123!',
+          email: '',
+          password: '',
           submit: null
         }}
         validationSchema={Yup.object().shape({
@@ -83,6 +83,7 @@ export default function AuthLogin() {
                     type="email"
                     value={values.email}
                     name="email"
+                    autoComplete="username"
                     onBlur={handleBlur}
                     onChange={handleChange}
                     placeholder="E-posta adresinizi girin"
@@ -106,6 +107,7 @@ export default function AuthLogin() {
                     type={showPassword ? 'text' : 'password'}
                     value={values.password}
                     name="password"
+                    autoComplete="current-password"
                     onBlur={handleBlur}
                     onChange={handleChange}
                     endAdornment={
