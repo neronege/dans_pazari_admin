@@ -75,10 +75,57 @@ const initialForm = {
   categoryId: '',
   venueId: '',
   sortOrder: 0,
+  sessionId: null,
+  startsAtLocal: '',
+  endsAtLocal: '',
+  doorOpensNote: '',
   organizerFirstName: '',
   organizerLastName: '',
   organizerAbout: ''
 };
+
+function toDateTimeLocalFromIso(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toIsoFromDateTimeLocal(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString();
+}
+
+function pickPrimarySession(sessions) {
+  const list = Array.isArray(sessions) ? [...sessions] : [];
+  if (list.length === 0) {
+    return null;
+  }
+
+  list.sort((a, b) => {
+    const aTime = new Date(a.startsAtUtc || 0).getTime();
+    const bTime = new Date(b.startsAtUtc || 0).getTime();
+    return aTime - bTime;
+  });
+
+  return list[0];
+}
 
 function flattenCategories(categories, level = 0) {
   return (categories || []).flatMap((category) => {
@@ -153,6 +200,14 @@ export default function EventsPage() {
   const [existingCoverUrl, setExistingCoverUrl] = useState('');
   const [existingBannerUrl, setExistingBannerUrl] = useState('');
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const [sessionEditingId, setSessionEditingId] = useState(null);
+  const [sessionForm, setSessionForm] = useState({
+    startsAtLocal: '',
+    endsAtLocal: '',
+    doorOpensNote: ''
+  });
+  const [sessionSaving, setSessionSaving] = useState(false);
   const fileInputRef = useRef(null);
   const bannerInputRef = useRef(null);
 
@@ -244,6 +299,7 @@ export default function EventsPage() {
         return true;
       });
 
+      const primarySession = pickPrimarySession(detail?.sessions);
       setEditingId(eventId);
       setForm({
         translations: hydrateTranslations(detail?.translations, EVENT_FIELDS, {
@@ -257,6 +313,10 @@ export default function EventsPage() {
         categoryId: detail?.categoryId || '',
         venueId: detail?.venueId || '',
         sortOrder: Number.isFinite(detail?.sortOrder) ? detail.sortOrder : 0,
+        sessionId: primarySession?.id || null,
+        startsAtLocal: toDateTimeLocalFromIso(primarySession?.startsAtUtc),
+        endsAtLocal: toDateTimeLocalFromIso(primarySession?.endsAtUtc),
+        doorOpensNote: primarySession?.doorOpensNote || '',
         organizerFirstName: detail?.organizerFirstName || '',
         organizerLastName: detail?.organizerLastName || '',
         organizerAbout: detail?.organizerAbout || ''
@@ -292,6 +352,21 @@ export default function EventsPage() {
     setSaving(true);
     setActionError('');
 
+    const startsAtUtc = toIsoFromDateTimeLocal(form.startsAtLocal);
+    const endsAtUtc = toIsoFromDateTimeLocal(form.endsAtLocal);
+
+    if (!startsAtUtc || !endsAtUtc) {
+      setActionError('Etkinlik başlangıç ve bitiş tarih/saat bilgisi zorunludur.');
+      setSaving(false);
+      return;
+    }
+
+    if (new Date(endsAtUtc).getTime() <= new Date(startsAtUtc).getTime()) {
+      setActionError('Bitiş zamanı başlangıçtan sonra olmalıdır.');
+      setSaving(false);
+      return;
+    }
+
     const translations = buildTranslationsPayload(form.translations, Object.keys(EVENT_FIELDS), 'title').filter(
       (row) => row.locale === 'tr' || Boolean(row.description)
     );
@@ -315,17 +390,29 @@ export default function EventsPage() {
       translations
     };
 
+    const sessionPayload = {
+      startsAtUtc,
+      endsAtUtc,
+      doorOpensNote: form.doorOpensNote.trim() || null
+    };
+
     try {
       let targetEventId = editingId;
 
       if (editingId) {
         await updateEvent(editingId, payload);
+        if (form.sessionId) {
+          await updateEventSession(editingId, form.sessionId, sessionPayload);
+        } else {
+          await createEventSession(editingId, sessionPayload);
+        }
       } else {
         const created = await createEvent(payload);
         targetEventId = created?.id || created?.eventId || null;
         if (!targetEventId) {
           throw new Error('Etkinlik olusturuldu ancak event id alinamadi.');
         }
+        await createEventSession(targetEventId, sessionPayload);
         setEditingId(targetEventId);
       }
 
@@ -567,63 +654,55 @@ export default function EventsPage() {
     }
   };
 
-  const onCreateSession = async () => {
-    if (!opsEventId) {
-      return;
-    }
-
-    const startsAtUtc = window.prompt('Seans başlangıç UTC (örnek: 2026-10-20T19:00:00Z)');
-    if (!startsAtUtc || !startsAtUtc.trim()) {
-      return;
-    }
-
-    const endsAtUtc = window.prompt('Seans bitiş UTC (örnek: 2026-10-20T22:00:00Z)');
-    if (!endsAtUtc || !endsAtUtc.trim()) {
-      return;
-    }
-
-    const doorOpensNote = window.prompt('Kapı açılış notu (opsiyonel)') || '';
-
-    try {
-      setActionError('');
-      await createEventSession(opsEventId, {
-        startsAtUtc: startsAtUtc.trim(),
-        endsAtUtc: endsAtUtc.trim(),
-        doorOpensNote: doorOpensNote.trim() || null
-      });
-      await reloadOperations(opsEventId);
-    } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
-    }
+  const openSessionDialog = (session = null) => {
+    setSessionEditingId(session?.id || null);
+    setSessionForm({
+      startsAtLocal: toDateTimeLocalFromIso(session?.startsAtUtc),
+      endsAtLocal: toDateTimeLocalFromIso(session?.endsAtUtc),
+      doorOpensNote: session?.doorOpensNote || ''
+    });
+    setActionError('');
+    setSessionDialogOpen(true);
   };
 
-  const onUpdateSession = async (session) => {
+  const submitSessionDialog = async () => {
     if (!opsEventId) {
       return;
     }
 
-    const startsAtUtc = window.prompt('Seans başlangıç UTC', session.startsAtUtc || '');
-    if (!startsAtUtc || !startsAtUtc.trim()) {
+    const startsAtUtc = toIsoFromDateTimeLocal(sessionForm.startsAtLocal);
+    const endsAtUtc = toIsoFromDateTimeLocal(sessionForm.endsAtLocal);
+
+    if (!startsAtUtc || !endsAtUtc) {
+      setActionError('Seans başlangıç ve bitiş tarih/saat bilgisi zorunludur.');
       return;
     }
 
-    const endsAtUtc = window.prompt('Seans bitiş UTC', session.endsAtUtc || '');
-    if (!endsAtUtc || !endsAtUtc.trim()) {
+    if (new Date(endsAtUtc).getTime() <= new Date(startsAtUtc).getTime()) {
+      setActionError('Bitiş zamanı başlangıçtan sonra olmalıdır.');
       return;
     }
 
-    const doorOpensNote = window.prompt('Kapı açılış notu (opsiyonel)', session.doorOpensNote || '') || '';
+    const payload = {
+      startsAtUtc,
+      endsAtUtc,
+      doorOpensNote: sessionForm.doorOpensNote.trim() || null
+    };
 
     try {
+      setSessionSaving(true);
       setActionError('');
-      await updateEventSession(opsEventId, session.id, {
-        startsAtUtc: startsAtUtc.trim(),
-        endsAtUtc: endsAtUtc.trim(),
-        doorOpensNote: doorOpensNote.trim() || null
-      });
+      if (sessionEditingId) {
+        await updateEventSession(opsEventId, sessionEditingId, payload);
+      } else {
+        await createEventSession(opsEventId, payload);
+      }
+      setSessionDialogOpen(false);
       await reloadOperations(opsEventId);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    } finally {
+      setSessionSaving(false);
     }
   };
 
@@ -1073,6 +1152,37 @@ export default function EventsPage() {
                 ))}
               </TextField>
             </Stack>
+            <Typography variant="subtitle2">Tarih ve Saat</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
+              <TextField
+                label="Başlangıç"
+                type="datetime-local"
+                value={form.startsAtLocal}
+                onChange={(event) => setForm((prev) => ({ ...prev, startsAtLocal: event.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Bitiş"
+                type="datetime-local"
+                value={form.endsAtLocal}
+                onChange={(event) => setForm((prev) => ({ ...prev, endsAtLocal: event.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+                required
+              />
+            </Stack>
+            <TextField
+              label="Kapı açılış notu (opsiyonel)"
+              value={form.doorOpensNote}
+              onChange={(event) => setForm((prev) => ({ ...prev, doorOpensNote: event.target.value }))}
+              helperText={
+                editingId
+                  ? 'Ana seans güncellenir. Ek seanslar için listeden Seanslar butonunu kullanın.'
+                  : 'Yerel saat diliminize göre seçin; sunucuya UTC olarak kaydedilir.'
+              }
+            />
             <Stack sx={{ gap: 1 }}>
               <Typography variant="subtitle2">Kapak Görseli (opsiyonel)</Typography>
               <Button variant="outlined" component="label">
@@ -1333,7 +1443,7 @@ export default function EventsPage() {
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
-              <Button variant="contained" onClick={onCreateSession}>
+              <Button variant="contained" onClick={() => openSessionDialog()}>
                 Yeni Seans
               </Button>
               {opsEventId && (
@@ -1350,7 +1460,7 @@ export default function EventsPage() {
               <MainCard key={session.id} title={`Seans: ${session.startsAtUtc || '-'} -> ${session.endsAtUtc || '-'}`}>
                 <Stack sx={{ gap: 2 }}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 1 }}>
-                    <Button size="small" onClick={() => onUpdateSession(session)}>
+                    <Button size="small" onClick={() => openSessionDialog(session)}>
                       Seans Düzenle
                     </Button>
                     <Button size="small" color="warning" onClick={() => onCancelSession(session)}>
@@ -1410,6 +1520,46 @@ export default function EventsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpsDialogOpen(false)}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={sessionDialogOpen} onClose={() => setSessionDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{sessionEditingId ? 'Seans Düzenle' : 'Yeni Seans'}</DialogTitle>
+        <DialogContent>
+          <Stack sx={{ gap: 2, mt: 1 }}>
+            <TextField
+              label="Başlangıç"
+              type="datetime-local"
+              value={sessionForm.startsAtLocal}
+              onChange={(event) => setSessionForm((prev) => ({ ...prev, startsAtLocal: event.target.value }))}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Bitiş"
+              type="datetime-local"
+              value={sessionForm.endsAtLocal}
+              onChange={(event) => setSessionForm((prev) => ({ ...prev, endsAtLocal: event.target.value }))}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Kapı açılış notu (opsiyonel)"
+              value={sessionForm.doorOpensNote}
+              onChange={(event) => setSessionForm((prev) => ({ ...prev, doorOpensNote: event.target.value }))}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSessionDialogOpen(false)} disabled={sessionSaving}>
+            İptal
+          </Button>
+          <Button variant="contained" onClick={submitSessionDialog} disabled={sessionSaving}>
+            {sessionSaving ? 'Kaydediliyor...' : 'Kaydet'}
+          </Button>
         </DialogActions>
       </Dialog>
     </>
