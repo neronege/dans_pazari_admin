@@ -50,7 +50,8 @@ const initialForm = {
   latitude: '',
   longitude: '',
   capacity: '',
-  isActive: true
+  isActive: true,
+  videoUrl: ''
 };
 
 const GOOGLE_MAPS_SCRIPT_ID = 'dp-google-maps-script';
@@ -284,7 +285,8 @@ export default function VenuesPage() {
         latitude: detail?.latitude ?? '',
         longitude: detail?.longitude ?? '',
         capacity: detail?.capacity ?? '',
-        isActive: detail?.isActive ?? true
+        isActive: detail?.isActive ?? true,
+        videoUrl: detail?.videoUrl || ''
       });
       setLocaleTab('tr');
       setSelectedPhotos([]);
@@ -388,6 +390,7 @@ export default function VenuesPage() {
       longitude: form.longitude === '' ? null : Number(form.longitude),
       capacity: form.capacity === '' ? null : Number(form.capacity),
       isActive: Boolean(form.isActive),
+      videoUrl: form.videoUrl.trim() || null,
       translations
     };
 
@@ -678,6 +681,13 @@ export default function VenuesPage() {
               label="Kapasite"
               value={form.capacity}
               onChange={(event) => setForm((prev) => ({ ...prev, capacity: event.target.value }))}
+            />
+            <TextField
+              label="Video URL (opsiyonel)"
+              value={form.videoUrl}
+              onChange={(event) => setForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
+              helperText="YouTube, Vimeo veya doğrudan https video linki."
+              fullWidth
             />
             <FormControlLabel
               control={

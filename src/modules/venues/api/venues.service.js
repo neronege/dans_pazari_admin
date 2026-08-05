@@ -21,6 +21,8 @@ function toVenueFormData(payload = {}, photos = []) {
   appendField(formData, 'description', payload.description);
   appendField(formData, 'capacity', payload.capacity);
   appendField(formData, 'isActive', payload.isActive);
+  // Boş string ile gönderilir ki güncellemede video temizlenebilsin.
+  formData.append('videoUrl', payload.videoUrl == null ? '' : String(payload.videoUrl));
 
   if (payload.translations) {
     formData.append('translations', JSON.stringify(payload.translations));

@@ -81,7 +81,8 @@ const initialForm = {
   doorOpensNote: '',
   organizerFirstName: '',
   organizerLastName: '',
-  organizerAbout: ''
+  organizerAbout: '',
+  videoUrl: ''
 };
 
 function toDateTimeLocalFromIso(value) {
@@ -319,7 +320,8 @@ export default function EventsPage() {
         doorOpensNote: primarySession?.doorOpensNote || '',
         organizerFirstName: detail?.organizerFirstName || '',
         organizerLastName: detail?.organizerLastName || '',
-        organizerAbout: detail?.organizerAbout || ''
+        organizerAbout: detail?.organizerAbout || '',
+        videoUrl: detail?.videoUrl || ''
       });
       setLocaleTab('tr');
       setExistingPhotos(galleryOnly);
@@ -387,6 +389,7 @@ export default function EventsPage() {
       organizerFirstName: form.organizerFirstName.trim() || null,
       organizerLastName: form.organizerLastName.trim() || null,
       organizerAbout: form.organizerAbout.trim() || null,
+      videoUrl: form.videoUrl.trim() || null,
       translations
     };
 
@@ -1377,6 +1380,13 @@ export default function EventsPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, sortOrder: Number(event.target.value) }))}
               helperText="Küçük numara listede önce görünür."
               inputProps={{ min: 0 }}
+            />
+            <TextField
+              label="Video URL (opsiyonel)"
+              value={form.videoUrl}
+              onChange={(event) => setForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
+              helperText="YouTube, Vimeo veya doğrudan https video linki."
+              fullWidth
             />
             <Typography variant="subtitle2">Düzenleyen Kişi (opsiyonel)</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
