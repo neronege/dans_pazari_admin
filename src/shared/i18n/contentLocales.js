@@ -135,3 +135,47 @@ export function updateLocaleField(translations, locale, field, value, { autoSlug
     [locale]: nextLocale
   };
 }
+
+/** API translations[] içinden locale satırını bulur. */
+export function getTranslationRow(translations, locale) {
+  if (!Array.isArray(translations)) {
+    return null;
+  }
+
+  const code = String(locale || '').trim().toLowerCase();
+  return translations.find((row) => String(row?.locale || '').trim().toLowerCase() === code) || null;
+}
+
+/**
+ * Kategori/etiket/yazı için locale’e göre ad.
+ * Çeviri yoksa ve fallbackToTr true ise kök (TR) adı döner.
+ */
+export function getLocalizedName(entity, locale, { fallbackToTr = true } = {}) {
+  const row = getTranslationRow(entity?.translations, locale);
+  if (row?.name) {
+    return row.name;
+  }
+
+  if (locale === 'tr' || fallbackToTr) {
+    return entity?.name || '';
+  }
+
+  return '';
+}
+
+/**
+ * Admin seçiciler için: istenen dilde çeviri varsa onu, yoksa "Ad (TR)" gösterir.
+ */
+export function getTaxonomySelectLabel(entity, locale) {
+  const localized = getLocalizedName(entity, locale, { fallbackToTr: false });
+  if (localized) {
+    return localized;
+  }
+
+  const trName = getLocalizedName(entity, 'tr') || entity?.name || '';
+  if (!trName) {
+    return '-';
+  }
+
+  return locale === 'tr' ? trName : `${trName} (TR)`;
+}

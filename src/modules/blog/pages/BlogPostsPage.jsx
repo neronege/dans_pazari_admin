@@ -45,6 +45,8 @@ import { getHumanReadableError } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
+  getLocalizedName,
+  getTaxonomySelectLabel,
   hydrateTranslations,
   trAsRoot,
   updateLocaleField
@@ -400,7 +402,7 @@ export default function BlogPostsPage() {
               <MenuItem value="">Tüm Kategoriler</MenuItem>
               {categories.map((category) => (
                 <MenuItem key={category.id} value={category.id}>
-                  {category.name}
+                  {getLocalizedName(category, 'tr') || category.name}
                 </MenuItem>
               ))}
             </TextField>
@@ -588,25 +590,25 @@ export default function BlogPostsPage() {
 
             <TextField
               select
-              label="Kategori"
+              label={`Kategori (${localeTab.toUpperCase()})`}
               value={form.categoryId}
               onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
               helperText={
                 categories.length === 0
                   ? 'Liste boş. Önce Blog → Blog Kategorileri menüsünden kategori ekleyin.'
-                  : undefined
+                  : 'Ad, üstteki dil sekmesine göre gösterilir. Çeviri yoksa TR adı (TR) ile işaretlenir.'
               }
             >
               <MenuItem value="">Seçiniz</MenuItem>
               {categories.map((category) => (
                 <MenuItem key={category.id} value={category.id}>
-                  {category.name}
+                  {getTaxonomySelectLabel(category, localeTab)}
                 </MenuItem>
               ))}
             </TextField>
             <TextField
               select
-              label="Etiketler"
+              label={`Etiketler (${localeTab.toUpperCase()})`}
               value={form.tagIds}
               onChange={(event) => setForm((prev) => ({ ...prev, tagIds: event.target.value }))}
               SelectProps={{ multiple: true }}
@@ -618,7 +620,7 @@ export default function BlogPostsPage() {
             >
               {tags.map((tag) => (
                 <MenuItem key={tag.id} value={tag.id}>
-                  {tag.name}
+                  {getTaxonomySelectLabel(tag, localeTab)}
                 </MenuItem>
               ))}
             </TextField>

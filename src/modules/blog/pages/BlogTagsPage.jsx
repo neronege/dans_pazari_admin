@@ -23,6 +23,8 @@ import { getHumanReadableError } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
+  getLocalizedName,
+  getTranslationRow,
   hydrateTranslations,
   trAsRoot,
   updateLocaleField
@@ -132,22 +134,24 @@ export default function BlogTagsPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Ad</TableCell>
-                  <TableCell>Slug</TableCell>
+                  <TableCell>TR</TableCell>
+                  <TableCell>EN</TableCell>
+                  <TableCell>RU</TableCell>
+                  <TableCell>Slug (TR)</TableCell>
                   <TableCell align="right">İşlemler</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={3} align="center">
+                    <TableCell colSpan={5} align="center">
                       Yükleniyor...
                     </TableCell>
                   </TableRow>
                 )}
                 {!isLoading && tags.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} align="center">
+                    <TableCell colSpan={5} align="center">
                       Henüz blog etiketi yok.
                     </TableCell>
                   </TableRow>
@@ -155,7 +159,9 @@ export default function BlogTagsPage() {
                 {!isLoading &&
                   tags.map((tag) => (
                     <TableRow key={tag.id} hover>
-                      <TableCell>{tag.name}</TableCell>
+                      <TableCell>{getLocalizedName(tag, 'tr') || '-'}</TableCell>
+                      <TableCell>{getTranslationRow(tag.translations, 'en')?.name || '-'}</TableCell>
+                      <TableCell>{getTranslationRow(tag.translations, 'ru')?.name || '-'}</TableCell>
                       <TableCell>{tag.slug}</TableCell>
                       <TableCell align="right">
                         <Button size="small" onClick={() => openEdit(tag)}>
@@ -177,6 +183,7 @@ export default function BlogTagsPage() {
         <DialogTitle>{editingId ? 'Etiket Düzenle' : 'Etiket Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
+            {actionError ? <Alert severity="error">{actionError}</Alert> : null}
             <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
               {(locale) => {
                 const row = translations?.[locale] || TAG_FIELDS;

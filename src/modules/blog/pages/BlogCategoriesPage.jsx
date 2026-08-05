@@ -30,6 +30,8 @@ import { getHumanReadableError } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
+  getLocalizedName,
+  getTranslationRow,
   hydrateTranslations,
   trAsRoot,
   updateLocaleField
@@ -144,8 +146,10 @@ export default function BlogCategoriesPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Ad</TableCell>
-                  <TableCell>Slug</TableCell>
+                  <TableCell>TR</TableCell>
+                  <TableCell>EN</TableCell>
+                  <TableCell>RU</TableCell>
+                  <TableCell>Slug (TR)</TableCell>
                   <TableCell>Durum</TableCell>
                   <TableCell align="right">İşlemler</TableCell>
                 </TableRow>
@@ -153,14 +157,14 @@ export default function BlogCategoriesPage() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
+                    <TableCell colSpan={6} align="center">
                       Yükleniyor...
                     </TableCell>
                   </TableRow>
                 )}
                 {!isLoading && categories.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
+                    <TableCell colSpan={6} align="center">
                       Henüz blog kategorisi yok.
                     </TableCell>
                   </TableRow>
@@ -168,7 +172,9 @@ export default function BlogCategoriesPage() {
                 {!isLoading &&
                   categories.map((category) => (
                     <TableRow key={category.id} hover>
-                      <TableCell>{category.name}</TableCell>
+                      <TableCell>{getLocalizedName(category, 'tr') || '-'}</TableCell>
+                      <TableCell>{getTranslationRow(category.translations, 'en')?.name || '-'}</TableCell>
+                      <TableCell>{getTranslationRow(category.translations, 'ru')?.name || '-'}</TableCell>
                       <TableCell>{category.slug}</TableCell>
                       <TableCell>
                         <Chip
@@ -197,6 +203,7 @@ export default function BlogCategoriesPage() {
         <DialogTitle>{editingId ? 'Blog Kategorisi Düzenle' : 'Blog Kategorisi Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
+            {actionError ? <Alert severity="error">{actionError}</Alert> : null}
             <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
               {(locale) => {
                 const row = translations?.[locale] || CATEGORY_FIELDS;

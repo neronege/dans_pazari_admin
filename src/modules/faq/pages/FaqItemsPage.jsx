@@ -92,11 +92,33 @@ export default function FaqItemsPage() {
     setSaving(true);
     setActionError('');
 
+    for (const { code, label } of [
+      { code: 'en', label: 'EN' },
+      { code: 'ru', label: 'RU' }
+    ]) {
+      const row = translations?.[code] || {};
+      const question = String(row.question || '').trim();
+      const answer = String(row.answer || '').trim();
+      const touched = Boolean(question || answer);
+
+      if (!touched) {
+        continue;
+      }
+
+      if (!question) {
+        setActionError(`${label} çevirisi için Soru zorunludur. Eksik alanı doldurun veya ${label} alanlarını boş bırakın.`);
+        setLocaleTab(code);
+        setSaving(false);
+        return;
+      }
+    }
+
     const payloadTranslations = buildTranslationsPayload(translations, Object.keys(FAQ_FIELDS), 'question');
     const root = trAsRoot(translations, { question: 'question', answer: 'answer' });
 
     if (!String(root.question || '').trim()) {
       setActionError('Soru zorunludur.');
+      setLocaleTab('tr');
       setSaving(false);
       return;
     }
@@ -236,6 +258,7 @@ export default function FaqItemsPage() {
         <DialogTitle>{isCreate ? 'SSS Maddesi Oluştur' : 'SSS Maddesi Düzenle'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
+            {actionError ? <Alert severity="error">{actionError}</Alert> : null}
             <TextField
               label="Sıra"
               type="number"
