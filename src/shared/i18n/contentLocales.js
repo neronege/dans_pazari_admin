@@ -5,7 +5,7 @@ export const CONTENT_LOCALES = [
 ];
 
 export function toContentSlug(value) {
-  return String(value || '')
+  const raw = String(value || '')
     .toLowerCase()
     .replace(/ı/g, 'i')
     .normalize('NFD')
@@ -14,6 +14,10 @@ export function toContentSlug(value) {
     .trim()
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');
+
+  // Kiril vb. başlıklarda latin slug üretilemezse boş bırak;
+  // backend title'dan slug üretir.
+  return raw;
 }
 
 /** Boş TR/EN/RU alan haritası. `fields` örn. `{ name: '', slug: '', description: '' }` */

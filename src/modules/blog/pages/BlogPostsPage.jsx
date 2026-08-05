@@ -240,14 +240,36 @@ export default function BlogPostsPage() {
     }
 
     const htmlTranslations = translationsToHtmlContent(form.translations);
-    const translations = buildTranslationsPayload(htmlTranslations, Object.keys(POST_FIELDS), 'title').filter(
-      (row) => {
-        if (row.locale === 'tr') {
-          return true;
-        }
-        return Boolean(row.summary && row.contentHtml);
+
+    // Opsiyonel diller: kısmi doldurulmuşsa sessizce atma — kullanıcıya hata göster.
+    for (const { code, label } of [
+      { code: 'en', label: 'EN' },
+      { code: 'ru', label: 'RU' }
+    ]) {
+      const row = htmlTranslations?.[code] || {};
+      const title = String(row.title || '').trim();
+      const summary = String(row.summary || '').trim();
+      const contentHtml = String(row.contentHtml || '').trim();
+      const slug = String(row.slug || '').trim();
+      const metaTitle = String(row.metaTitle || '').trim();
+      const metaDescription = String(row.metaDescription || '').trim();
+      const touched = Boolean(title || summary || contentHtml || slug || metaTitle || metaDescription);
+
+      if (!touched) {
+        continue;
       }
-    );
+
+      if (!title || !summary || !contentHtml) {
+        setActionError(
+          `${label} çevirisi için Başlık, Özet ve İçerik zorunludur. Eksik alanları doldurun veya ${label} alanlarını boş bırakın.`
+        );
+        setLocaleTab(code);
+        setSaving(false);
+        return;
+      }
+    }
+
+    const translations = buildTranslationsPayload(htmlTranslations, Object.keys(POST_FIELDS), 'title');
 
     const root = trAsRoot(htmlTranslations, {
       title: 'title',
@@ -257,6 +279,13 @@ export default function BlogPostsPage() {
       metaTitle: 'metaTitle',
       metaDescription: 'metaDescription'
     });
+
+    if (!root.title || !root.summary || !root.contentHtml) {
+      setActionError('TR çevirisi için Başlık, Özet ve İçerik zorunludur.');
+      setLocaleTab('tr');
+      setSaving(false);
+      return;
+    }
 
     const payload = {
       ...root,
@@ -469,6 +498,7 @@ export default function BlogPostsPage() {
         <DialogTitle>{editingId ? 'Yazı Düzenle' : 'Yazı Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
+            {actionError ? <Alert severity="error">{actionError}</Alert> : null}
             <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
               {(locale) => {
                 const row = form.translations?.[locale] || POST_FIELDS;
