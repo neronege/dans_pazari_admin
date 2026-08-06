@@ -41,6 +41,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { clearFieldError, getFieldError } from 'shared/ui/fieldErrors';
 
 const CATEGORY_FIELDS = { name: '', slug: '', description: '' };
 
@@ -73,6 +74,7 @@ export default function CategoriesPage() {
   const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
   useEffect(() => {
     setRows(flattenCategories(categories));
@@ -97,6 +99,7 @@ export default function CategoriesPage() {
     });
     setLocaleTab('tr');
     setActionError('');
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -117,6 +120,7 @@ export default function CategoriesPage() {
         isActive: detail?.isActive ?? true
       });
       setLocaleTab('tr');
+      setFormErrors({});
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -130,11 +134,21 @@ export default function CategoriesPage() {
         autoSlugFrom: field === 'name' ? 'name' : undefined
       })
     }));
+    setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.${field}`));
   };
 
   const submitForm = async () => {
     setSaving(true);
     setActionError('');
+
+    if (!String(form.translations?.tr?.name || '').trim()) {
+      setFormErrors({ 'translations.tr.name': 'Ad zorunludur.' });
+      setLocaleTab('tr');
+      setSaving(false);
+      return;
+    }
+
+    setFormErrors({});
 
     const translations = buildTranslationsPayload(form.translations, Object.keys(CATEGORY_FIELDS), 'name');
     const root = trAsRoot(form.translations, { name: 'name', slug: 'slug', description: 'description' });
@@ -320,6 +334,8 @@ export default function CategoriesPage() {
                     value={localeRow.name}
                     onChange={(event) => setLocaleValue(localeTab, 'name', event.target.value)}
                     required={localeTab === 'tr'}
+                    error={Boolean(getFieldError(formErrors, `translations.${localeTab}.name`))}
+                    helperText={getFieldError(formErrors, `translations.${localeTab}.name`)}
                   />
                   <TextField label="Slug" value={localeRow.slug} slotProps={{ input: { readOnly: true } }} />
                   <TextField
@@ -364,7 +380,7 @@ export default function CategoriesPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Vazgeç</Button>
-          <Button variant="contained" onClick={submitForm} disabled={saving || !trName.trim()}>
+          <Button variant="contained" onClick={submitForm} disabled={saving}>
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>
         </DialogActions>

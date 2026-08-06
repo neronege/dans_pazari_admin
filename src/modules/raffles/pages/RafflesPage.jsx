@@ -32,6 +32,7 @@ import {
 } from 'modules/raffles/api/raffles.service';
 import useRaffles from 'modules/raffles/hooks/useRaffles';
 import { getHumanReadableError } from 'shared/api';
+import { clearFieldError, getFieldError } from 'shared/ui/fieldErrors';
 
 const initialForm = {
   title: '',
@@ -89,6 +90,7 @@ export default function RafflesPage() {
   const [entriesCount, setEntriesCount] = useState(0);
   const [winnersCount, setWinnersCount] = useState(0);
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
   const { raffles, totalCount, isLoading, error, refresh } = useRaffles({
     page,
@@ -103,6 +105,7 @@ export default function RafflesPage() {
     setEditingId(null);
     setForm(initialForm);
     setActionError('');
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -117,6 +120,7 @@ export default function RafflesPage() {
         endsAtUtc: toDateTimeLocalFromIso(detailResponse?.endsAtUtc),
         description: detailResponse?.description || ''
       });
+      setFormErrors({});
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -127,10 +131,38 @@ export default function RafflesPage() {
     setSaving(true);
     setActionError('');
 
+    const nextErrors = {};
+    const startsAtUtc = toIsoFromDateTimeLocal(form.startsAtUtc);
+    const endsAtUtc = toIsoFromDateTimeLocal(form.endsAtUtc);
+
+    if (!String(form.title || '').trim()) {
+      nextErrors.title = 'Başlık zorunludur.';
+    }
+
+    if (!startsAtUtc) {
+      nextErrors.startsAtUtc = 'Başlangıç tarihi zorunludur.';
+    }
+
+    if (!endsAtUtc) {
+      nextErrors.endsAtUtc = 'Bitiş tarihi zorunludur.';
+    }
+
+    if (startsAtUtc && endsAtUtc && new Date(endsAtUtc).getTime() <= new Date(startsAtUtc).getTime()) {
+      nextErrors.endsAtUtc = 'Bitiş zamanı başlangıçtan sonra olmalıdır.';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors);
+      setSaving(false);
+      return;
+    }
+
+    setFormErrors({});
+
     const payload = {
       title: form.title,
-      startsAtUtc: toIsoFromDateTimeLocal(form.startsAtUtc),
-      endsAtUtc: toIsoFromDateTimeLocal(form.endsAtUtc),
+      startsAtUtc,
+      endsAtUtc,
       description: form.description || null
     };
 
@@ -336,24 +368,42 @@ export default function RafflesPage() {
             <TextField
               label="Başlık"
               value={form.title}
-              onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setForm((prev) => ({ ...prev, title: value }));
+                setFormErrors((prev) => clearFieldError(prev, 'title'));
+              }}
               required
+              error={Boolean(getFieldError(formErrors, 'title'))}
+              helperText={getFieldError(formErrors, 'title')}
             />
             <TextField
               type="datetime-local"
               label="Başlangıç"
               value={form.startsAtUtc}
-              onChange={(event) => setForm((prev) => ({ ...prev, startsAtUtc: event.target.value }))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setForm((prev) => ({ ...prev, startsAtUtc: value }));
+                setFormErrors((prev) => clearFieldError(prev, 'startsAtUtc'));
+              }}
               InputLabelProps={{ shrink: true }}
               required
+              error={Boolean(getFieldError(formErrors, 'startsAtUtc'))}
+              helperText={getFieldError(formErrors, 'startsAtUtc')}
             />
             <TextField
               type="datetime-local"
               label="Bitiş"
               value={form.endsAtUtc}
-              onChange={(event) => setForm((prev) => ({ ...prev, endsAtUtc: event.target.value }))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setForm((prev) => ({ ...prev, endsAtUtc: value }));
+                setFormErrors((prev) => clearFieldError(prev, 'endsAtUtc'));
+              }}
               InputLabelProps={{ shrink: true }}
               required
+              error={Boolean(getFieldError(formErrors, 'endsAtUtc'))}
+              helperText={getFieldError(formErrors, 'endsAtUtc')}
             />
             <TextField
               label="Açıklama"
@@ -366,7 +416,7 @@ export default function RafflesPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Vazgeç</Button>
-          <Button variant="contained" onClick={submitForm} disabled={saving || !form.title.trim() || !form.startsAtUtc || !form.endsAtUtc}>
+          <Button variant="contained" onClick={submitForm} disabled={saving}>
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>
         </DialogActions>

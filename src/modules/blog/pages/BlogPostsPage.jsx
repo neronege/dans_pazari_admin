@@ -52,6 +52,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
 import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const MAX_PHOTOS = BLOG_IMAGE.maxCount;
@@ -90,6 +91,7 @@ export default function BlogPostsPage() {
   const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [photoWarnings, setPhotoWarnings] = useState([]);
@@ -130,6 +132,7 @@ export default function BlogPostsPage() {
     setPhotoPickError('');
     setLocaleTab('tr');
     setActionError('');
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -162,6 +165,7 @@ export default function BlogPostsPage() {
       setPhotoWarnings([]);
       setPhotoPickError('');
       setLocaleTab('tr');
+      setFormErrors({});
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -210,6 +214,7 @@ export default function BlogPostsPage() {
   const removePendingFile = (index) => {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
     setPhotoWarnings([]);
+    setFormErrors((prev) => clearFieldError(prev, 'photos'));
   };
 
   const onDeleteExistingPhoto = async (photoId) => {
@@ -235,11 +240,11 @@ export default function BlogPostsPage() {
   const submitForm = async () => {
     setSaving(true);
     setActionError('');
+    const nextErrors = {};
+    let firstErrorLocale = 'tr';
 
     if (!hasRequiredPhoto) {
-      setActionError('En az 1 blog fotoğrafı zorunludur (önerilen 900×500, oran ~9:5).');
-      setSaving(false);
-      return;
+      nextErrors.photos = 'En az 1 blog fotoğrafı zorunludur.';
     }
 
     const htmlTranslations = translationsToHtmlContent(form.translations);
@@ -263,12 +268,19 @@ export default function BlogPostsPage() {
       }
 
       if (!title || !summary || !contentHtml) {
-        setActionError(
-          `${label} çevirisi için Başlık, Özet ve İçerik zorunludur. Eksik alanları doldurun veya ${label} alanlarını boş bırakın.`
-        );
-        setLocaleTab(code);
-        setSaving(false);
-        return;
+        if (!title) {
+          nextErrors[`translations.${code}.title`] = `${label} çevirisinde başlık zorunludur.`;
+        }
+
+        if (!summary) {
+          nextErrors[`translations.${code}.summary`] = `${label} çevirisinde özet zorunludur.`;
+        }
+
+        if (!contentHtml) {
+          nextErrors[`translations.${code}.contentHtml`] = `${label} çevirisinde içerik zorunludur.`;
+        }
+
+        firstErrorLocale = code;
       }
     }
 
@@ -284,11 +296,29 @@ export default function BlogPostsPage() {
     });
 
     if (!root.title || !root.summary || !root.contentHtml) {
-      setActionError('TR çevirisi için Başlık, Özet ve İçerik zorunludur.');
-      setLocaleTab('tr');
+      if (!root.title) {
+        nextErrors['translations.tr.title'] = 'Başlık zorunludur.';
+      }
+
+      if (!root.summary) {
+        nextErrors['translations.tr.summary'] = 'Özet zorunludur.';
+      }
+
+      if (!root.contentHtml) {
+        nextErrors['translations.tr.contentHtml'] = 'İçerik zorunludur.';
+      }
+
+      firstErrorLocale = 'tr';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors);
+      setLocaleTab(firstErrorLocale);
       setSaving(false);
       return;
     }
+
+    setFormErrors({});
 
     const payload = {
       ...root,
@@ -510,43 +540,54 @@ export default function BlogPostsPage() {
                     <TextField
                       label="Başlık"
                       value={row.title}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.target.value;
                         setForm((prev) => ({
                           ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'title', event.target.value, {
+                          translations: updateLocaleField(prev.translations, locale, 'title', value, {
                             autoSlugFrom: 'title'
                           })
-                        }))
-                      }
+                        }));
+                        setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.title`));
+                      }}
                       required={locale === 'tr'}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.title`))}
+                      helperText={withFieldError(getFieldError(formErrors, `translations.${locale}.title`), lengthFieldProps(row.title, FIELD_LIMITS.blogPost.title).helperText)}
                       {...lengthFieldProps(row.title, FIELD_LIMITS.blogPost.title)}
                     />
                     <TextField
                       label="Özet"
                       value={row.summary}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.target.value;
                         setForm((prev) => ({
                           ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'summary', event.target.value)
-                        }))
-                      }
+                          translations: updateLocaleField(prev.translations, locale, 'summary', value)
+                        }));
+                        setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.summary`));
+                      }}
                       multiline
                       minRows={2}
                       required={locale === 'tr'}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.summary`))}
+                      helperText={withFieldError(getFieldError(formErrors, `translations.${locale}.summary`), lengthFieldProps(row.summary, FIELD_LIMITS.blogPost.summary).helperText)}
                       {...lengthFieldProps(row.summary, FIELD_LIMITS.blogPost.summary)}
                     />
                     <TextField
                       label="İçerik"
                       value={row.contentHtml}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.target.value;
                         setForm((prev) => ({
                           ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'contentHtml', event.target.value)
-                        }))
-                      }
+                          translations: updateLocaleField(prev.translations, locale, 'contentHtml', value)
+                        }));
+                        setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.contentHtml`));
+                      }}
                       multiline
                       minRows={8}
-                      helperText="Normal metin yazın. Boş satır yeni paragraf oluşturur."
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.contentHtml`))}
+                      helperText={withFieldError(getFieldError(formErrors, `translations.${locale}.contentHtml`), 'Normal metin yazın. Boş satır yeni paragraf oluşturur.')}
                       required={locale === 'tr'}
                     />
                     <TextField
@@ -653,6 +694,7 @@ export default function BlogPostsPage() {
                   {warning}
                 </Alert>
               ))}
+              {getFieldError(formErrors, 'photos') && <Alert severity="error">{getFieldError(formErrors, 'photos')}</Alert>}
               {!hasRequiredPhoto && (
                 <Alert severity="warning">Kaydetmek için en az 1 uygun oranlı fotoğraf ekleyin.</Alert>
               )}
@@ -714,10 +756,6 @@ export default function BlogPostsPage() {
             onClick={submitForm}
             disabled={
               saving ||
-              !hasRequiredPhoto ||
-              !String(form.translations?.tr?.title || '').trim() ||
-              !String(form.translations?.tr?.summary || '').trim() ||
-              !String(form.translations?.tr?.contentHtml || '').trim() ||
               translationsHaveLengthErrors(form.translations, FIELD_LIMITS.blogPost)
             }
           >

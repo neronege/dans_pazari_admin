@@ -39,6 +39,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
 import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors, isOverLimit } from 'shared/ui/fieldLength';
 
 const VENUE_FIELDS = { name: '', slug: '', description: '' };
@@ -122,6 +123,7 @@ export default function VenuesPage() {
   const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [mapError, setMapError] = useState('');
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
@@ -262,6 +264,7 @@ export default function VenuesPage() {
     setSelectedPhotos([]);
     setExistingPhotos([]);
     setActionError('');
+    setFormErrors({});
     if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -292,6 +295,7 @@ export default function VenuesPage() {
       setLocaleTab('tr');
       setSelectedPhotos([]);
       setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
+      setFormErrors({});
       if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
@@ -364,6 +368,28 @@ export default function VenuesPage() {
 
     const sharedAddress = String(form.address || '').trim();
     const sharedDistrict = String(form.district || '').trim() || null;
+    const nextErrors = {};
+
+    if (!String(form.translations?.tr?.name || '').trim()) {
+      nextErrors['translations.tr.name'] = 'Ad zorunludur.';
+    }
+
+    if (!sharedAddress) {
+      nextErrors.address = 'Adres zorunludur.';
+    }
+
+    if (!String(form.city || '').trim()) {
+      nextErrors.city = 'Şehir zorunludur.';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors);
+      setLocaleTab('tr');
+      setSaving(false);
+      return;
+    }
+
+    setFormErrors({});
 
     // Adres/ilçe dile bağlı değil — tüm locale satırlarına aynı değer yazılır.
     const translations = buildTranslationsPayload(
@@ -554,15 +580,19 @@ export default function VenuesPage() {
                     <TextField
                       label="Ad"
                       value={row.name}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.target.value;
                         setForm((prev) => ({
                           ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'name', event.target.value, {
+                          translations: updateLocaleField(prev.translations, locale, 'name', value, {
                             autoSlugFrom: 'name'
                           })
-                        }))
-                      }
+                        }));
+                        setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.name`));
+                      }}
                       required={locale === 'tr'}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.name`))}
+                      helperText={withFieldError(getFieldError(formErrors, `translations.${locale}.name`), lengthFieldProps(row.name, FIELD_LIMITS.venue.name).helperText)}
                       {...lengthFieldProps(row.name, FIELD_LIMITS.venue.name)}
                     />
                     <TextField
@@ -590,9 +620,14 @@ export default function VenuesPage() {
             <TextField
               label="Adres"
               value={form.address}
-              onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setForm((prev) => ({ ...prev, address: value }));
+                setFormErrors((prev) => clearFieldError(prev, 'address'));
+              }}
               required
-              helperText="Adres tüm dillerde aynı kullanılır."
+              error={Boolean(getFieldError(formErrors, 'address'))}
+              helperText={withFieldError(getFieldError(formErrors, 'address'), 'Adres tüm dillerde aynı kullanılır.')}
             />
             <TextField
               label="İlçe"
@@ -603,8 +638,14 @@ export default function VenuesPage() {
             <TextField
               label="Şehir"
               value={form.city}
-              onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setForm((prev) => ({ ...prev, city: value }));
+                setFormErrors((prev) => clearFieldError(prev, 'city'));
+              }}
               required
+              error={Boolean(getFieldError(formErrors, 'city'))}
+              helperText={withFieldError(getFieldError(formErrors, 'city'), lengthFieldProps(form.city, FIELD_LIMITS.venue.city).helperText)}
               {...lengthFieldProps(form.city, FIELD_LIMITS.venue.city)}
             />
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
@@ -717,9 +758,6 @@ export default function VenuesPage() {
             onClick={submitForm}
             disabled={
               saving ||
-              !String(form.translations?.tr?.name || '').trim() ||
-              !form.city.trim() ||
-              !String(form.address || '').trim() ||
               translationsHaveLengthErrors(form.translations, {
                 name: FIELD_LIMITS.venue.name,
                 slug: FIELD_LIMITS.venue.slug

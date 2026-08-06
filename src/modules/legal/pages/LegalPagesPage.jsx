@@ -37,6 +37,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
 
 const LEGAL_FIELDS = { title: '', bodyHtml: '' };
 
@@ -58,6 +59,7 @@ export default function LegalPagesPage() {
   const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
   const openCreate = () => {
     setIsCreate(true);
@@ -67,6 +69,7 @@ export default function LegalPagesPage() {
     setTranslations(createEmptyTranslations(LEGAL_FIELDS));
     setLocaleTab('tr');
     setActionError('');
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -85,6 +88,7 @@ export default function LegalPagesPage() {
         })
       );
       setLocaleTab('tr');
+      setFormErrors({});
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -99,6 +103,7 @@ export default function LegalPagesPage() {
       }
       return next;
     });
+    setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.title`));
   };
 
   const submitForm = async () => {
@@ -109,11 +114,24 @@ export default function LegalPagesPage() {
     const root = trAsRoot(translations, { title: 'title', bodyHtml: 'bodyHtml' });
     const normalizedSlug = toContentSlug(slug || root.title || '');
 
+    const nextErrors = {};
+
+    if (!String(root.title || '').trim()) {
+      nextErrors['translations.tr.title'] = 'Başlık zorunludur.';
+    }
+
     if (!normalizedSlug) {
-      setActionError('Slug zorunludur.');
+      nextErrors.slug = 'Slug zorunludur.';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors);
+      setLocaleTab('tr');
       setSaving(false);
       return;
     }
+
+    setFormErrors({});
 
     const payload = {
       ...root,
@@ -265,8 +283,10 @@ export default function LegalPagesPage() {
               onChange={(event) => {
                 setSlugTouched(true);
                 setSlug(toContentSlug(event.target.value));
+                setFormErrors((prev) => clearFieldError(prev, 'slug'));
               }}
-              helperText="URL anahtarı (örn. kvkk, gizlilik-politikasi). Dil bağımsızdır."
+              error={Boolean(getFieldError(formErrors, 'slug'))}
+              helperText={withFieldError(getFieldError(formErrors, 'slug'), 'URL anahtarı (örn. kvkk, gizlilik-politikasi). Dil bağımsızdır.')}
               required
             />
             <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
@@ -279,6 +299,8 @@ export default function LegalPagesPage() {
                       value={row.title}
                       onChange={(event) => onTitleChange(locale, event.target.value)}
                       required={locale === 'tr'}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.title`))}
+                      helperText={getFieldError(formErrors, `translations.${locale}.title`)}
                     />
                     <TextField
                       label="İçerik (HTML)"
@@ -300,7 +322,7 @@ export default function LegalPagesPage() {
           <Button
             variant="contained"
             onClick={submitForm}
-            disabled={saving || !String(translations?.tr?.title || '').trim() || !String(slug || '').trim()}
+            disabled={saving}
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>

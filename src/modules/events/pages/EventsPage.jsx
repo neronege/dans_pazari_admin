@@ -178,6 +178,10 @@ function resolvePhotoUrl(photo) {
   return photo?.imageUrl || photo?.photoUrl || photo?.url || photo?.fileUrl || photo?.thumbnailUrl || '';
 }
 
+function getErrorText(errors, key) {
+  return errors[key] || '';
+}
+
 export default function EventsPage() {
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('');
@@ -189,6 +193,7 @@ export default function EventsPage() {
   const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [opsDialogOpen, setOpsDialogOpen] = useState(false);
   const [opsEventId, setOpsEventId] = useState(null);
   const [opsEventTitle, setOpsEventTitle] = useState('');
@@ -209,6 +214,7 @@ export default function EventsPage() {
     endsAtLocal: '',
     doorOpensNote: ''
   });
+  const [sessionFormErrors, setSessionFormErrors] = useState({});
   const [sessionSaving, setSessionSaving] = useState(false);
   const fileInputRef = useRef(null);
   const bannerInputRef = useRef(null);
@@ -282,6 +288,7 @@ export default function EventsPage() {
     setExistingCoverUrl('');
     setExistingBannerUrl('');
     setActionError('');
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -331,6 +338,7 @@ export default function EventsPage() {
       setCoverFile(null);
       setBannerFile(null);
       setGalleryFiles([]);
+      setFormErrors({});
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getRequestErrorMessage(requestError));
@@ -358,17 +366,51 @@ export default function EventsPage() {
     const startsAtUtc = toIsoFromDateTimeLocal(form.startsAtLocal);
     const endsAtUtc = toIsoFromDateTimeLocal(form.endsAtLocal);
 
+    const nextErrors = {};
+
+    if (!String(form.translations?.tr?.title || '').trim()) {
+      nextErrors['translations.tr.title'] = 'Başlık zorunludur.';
+    }
+
+    if (!String(form.translations?.tr?.description || '').trim()) {
+      nextErrors['translations.tr.description'] = 'Açıklama zorunludur.';
+    }
+
+    if (!form.categoryId) {
+      nextErrors.categoryId = 'Kategori seçmelisiniz.';
+    }
+
+    if (!form.venueId) {
+      nextErrors.venueId = 'Mekan seçmelisiniz.';
+    }
+
     if (!startsAtUtc || !endsAtUtc) {
-      setActionError('Etkinlik başlangıç ve bitiş tarih/saat bilgisi zorunludur.');
+      if (!startsAtUtc) {
+        nextErrors.startsAtLocal = 'Başlangıç tarihi zorunludur.';
+      }
+
+      if (!endsAtUtc) {
+        nextErrors.endsAtLocal = 'Bitiş tarihi zorunludur.';
+      }
+
+      setFormErrors(nextErrors);
+      setLocaleTab('tr');
       setSaving(false);
       return;
     }
 
     if (new Date(endsAtUtc).getTime() <= new Date(startsAtUtc).getTime()) {
-      setActionError('Bitiş zamanı başlangıçtan sonra olmalıdır.');
+      nextErrors.endsAtLocal = 'Bitiş zamanı başlangıçtan sonra olmalıdır.';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors);
+      setLocaleTab('tr');
       setSaving(false);
       return;
     }
+
+    setFormErrors({});
 
     const translations = buildTranslationsPayload(form.translations, Object.keys(EVENT_FIELDS), 'title').filter(
       (row) => row.locale === 'tr' || Boolean(row.description)
@@ -666,6 +708,7 @@ export default function EventsPage() {
       doorOpensNote: session?.doorOpensNote || ''
     });
     setActionError('');
+    setSessionFormErrors({});
     setSessionDialogOpen(true);
   };
 
@@ -677,15 +720,27 @@ export default function EventsPage() {
     const startsAtUtc = toIsoFromDateTimeLocal(sessionForm.startsAtLocal);
     const endsAtUtc = toIsoFromDateTimeLocal(sessionForm.endsAtLocal);
 
+    const nextErrors = {};
+
     if (!startsAtUtc || !endsAtUtc) {
-      setActionError('Seans başlangıç ve bitiş tarih/saat bilgisi zorunludur.');
+      if (!startsAtUtc) {
+        nextErrors.startsAtLocal = 'Başlangıç tarihi zorunludur.';
+      }
+
+      if (!endsAtUtc) {
+        nextErrors.endsAtLocal = 'Bitiş tarihi zorunludur.';
+      }
+
+      setSessionFormErrors(nextErrors);
       return;
     }
 
     if (new Date(endsAtUtc).getTime() <= new Date(startsAtUtc).getTime()) {
-      setActionError('Bitiş zamanı başlangıçtan sonra olmalıdır.');
+      setSessionFormErrors({ endsAtLocal: 'Bitiş zamanı başlangıçtan sonra olmalıdır.' });
       return;
     }
+
+    setSessionFormErrors({});
 
     const payload = {
       startsAtUtc,
@@ -1054,14 +1109,28 @@ export default function EventsPage() {
                       label="Baslik"
                       value={row.title}
                       onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'title', event.target.value, {
-                            autoSlugFrom: 'title'
-                          })
-                        }))
+                        {
+                          const value = event.target.value;
+                          setForm((prev) => ({
+                            ...prev,
+                            translations: updateLocaleField(prev.translations, locale, 'title', value, {
+                              autoSlugFrom: 'title'
+                            })
+                          }));
+                          setFormErrors((prev) => {
+                            if (!prev[`translations.${locale}.title`]) {
+                              return prev;
+                            }
+
+                            const next = { ...prev };
+                            delete next[`translations.${locale}.title`];
+                            return next;
+                          });
+                        }
                       }
                       required={locale === 'tr'}
+                      error={Boolean(getErrorText(formErrors, `translations.${locale}.title`))}
+                      helperText={getErrorText(formErrors, `translations.${locale}.title`) || lengthFieldProps(row.title, FIELD_LIMITS.event.title).helperText}
                       {...lengthFieldProps(row.title, FIELD_LIMITS.event.title)}
                     />
                     <TextField
@@ -1079,14 +1148,28 @@ export default function EventsPage() {
                       label="Açıklama"
                       value={row.description}
                       onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'description', event.target.value)
-                        }))
+                        {
+                          const value = event.target.value;
+                          setForm((prev) => ({
+                            ...prev,
+                            translations: updateLocaleField(prev.translations, locale, 'description', value)
+                          }));
+                          setFormErrors((prev) => {
+                            if (!prev[`translations.${locale}.description`]) {
+                              return prev;
+                            }
+
+                            const next = { ...prev };
+                            delete next[`translations.${locale}.description`];
+                            return next;
+                          });
+                        }
                       }
                       multiline
                       minRows={4}
                       required={locale === 'tr'}
+                      error={Boolean(getErrorText(formErrors, `translations.${locale}.description`))}
+                      helperText={getErrorText(formErrors, `translations.${locale}.description`)}
                     />
                     <TextField
                       label="Kısa Açıklama"
@@ -1138,9 +1221,23 @@ export default function EventsPage() {
                 select
                 label="Kategori"
                 value={form.categoryId}
-                onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setForm((prev) => ({ ...prev, categoryId: value }));
+                  setFormErrors((prev) => {
+                    if (!prev.categoryId) {
+                      return prev;
+                    }
+
+                    const next = { ...prev };
+                    delete next.categoryId;
+                    return next;
+                  });
+                }}
                 fullWidth
                 required
+                error={Boolean(getErrorText(formErrors, 'categoryId'))}
+                helperText={getErrorText(formErrors, 'categoryId')}
               >
                 <MenuItem value="">Seçiniz</MenuItem>
                 {categoryOptions.map((category) => (
@@ -1154,9 +1251,23 @@ export default function EventsPage() {
                 select
                 label="Mekan"
                 value={form.venueId}
-                onChange={(event) => setForm((prev) => ({ ...prev, venueId: event.target.value }))}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setForm((prev) => ({ ...prev, venueId: value }));
+                  setFormErrors((prev) => {
+                    if (!prev.venueId) {
+                      return prev;
+                    }
+
+                    const next = { ...prev };
+                    delete next.venueId;
+                    return next;
+                  });
+                }}
                 fullWidth
                 required
+                error={Boolean(getErrorText(formErrors, 'venueId'))}
+                helperText={getErrorText(formErrors, 'venueId')}
               >
                 <MenuItem value="">Seçiniz</MenuItem>
                 {venues.map((venue) => (
@@ -1172,19 +1283,47 @@ export default function EventsPage() {
                 label="Başlangıç"
                 type="datetime-local"
                 value={form.startsAtLocal}
-                onChange={(event) => setForm((prev) => ({ ...prev, startsAtLocal: event.target.value }))}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setForm((prev) => ({ ...prev, startsAtLocal: value }));
+                  setFormErrors((prev) => {
+                    if (!prev.startsAtLocal) {
+                      return prev;
+                    }
+
+                    const next = { ...prev };
+                    delete next.startsAtLocal;
+                    return next;
+                  });
+                }}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
                 required
+                error={Boolean(getErrorText(formErrors, 'startsAtLocal'))}
+                helperText={getErrorText(formErrors, 'startsAtLocal')}
               />
               <TextField
                 label="Bitiş"
                 type="datetime-local"
                 value={form.endsAtLocal}
-                onChange={(event) => setForm((prev) => ({ ...prev, endsAtLocal: event.target.value }))}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setForm((prev) => ({ ...prev, endsAtLocal: value }));
+                  setFormErrors((prev) => {
+                    if (!prev.endsAtLocal) {
+                      return prev;
+                    }
+
+                    const next = { ...prev };
+                    delete next.endsAtLocal;
+                    return next;
+                  });
+                }}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
                 required
+                error={Boolean(getErrorText(formErrors, 'endsAtLocal'))}
+                helperText={getErrorText(formErrors, 'endsAtLocal')}
               />
             </Stack>
             <TextField
@@ -1437,10 +1576,6 @@ export default function EventsPage() {
             onClick={submitForm}
             disabled={
               saving ||
-              !String(form.translations?.tr?.title || '').trim() ||
-              !String(form.translations?.tr?.description || '').trim() ||
-              !form.categoryId ||
-              !form.venueId ||
               translationsHaveLengthErrors(form.translations, {
                 title: FIELD_LIMITS.event.title,
                 slug: FIELD_LIMITS.event.slug,
@@ -1570,19 +1705,47 @@ export default function EventsPage() {
               label="Başlangıç"
               type="datetime-local"
               value={sessionForm.startsAtLocal}
-              onChange={(event) => setSessionForm((prev) => ({ ...prev, startsAtLocal: event.target.value }))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSessionForm((prev) => ({ ...prev, startsAtLocal: value }));
+                setSessionFormErrors((prev) => {
+                  if (!prev.startsAtLocal) {
+                    return prev;
+                  }
+
+                  const next = { ...prev };
+                  delete next.startsAtLocal;
+                  return next;
+                });
+              }}
               InputLabelProps={{ shrink: true }}
               fullWidth
               required
+              error={Boolean(getErrorText(sessionFormErrors, 'startsAtLocal'))}
+              helperText={getErrorText(sessionFormErrors, 'startsAtLocal')}
             />
             <TextField
               label="Bitiş"
               type="datetime-local"
               value={sessionForm.endsAtLocal}
-              onChange={(event) => setSessionForm((prev) => ({ ...prev, endsAtLocal: event.target.value }))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSessionForm((prev) => ({ ...prev, endsAtLocal: value }));
+                setSessionFormErrors((prev) => {
+                  if (!prev.endsAtLocal) {
+                    return prev;
+                  }
+
+                  const next = { ...prev };
+                  delete next.endsAtLocal;
+                  return next;
+                });
+              }}
               InputLabelProps={{ shrink: true }}
               fullWidth
               required
+              error={Boolean(getErrorText(sessionFormErrors, 'endsAtLocal'))}
+              helperText={getErrorText(sessionFormErrors, 'endsAtLocal')}
             />
             <TextField
               label="Kapı açılış notu (opsiyonel)"

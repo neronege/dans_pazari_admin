@@ -36,6 +36,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
 import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const FAQ_FIELDS = { question: '', answer: '' };
@@ -58,6 +59,7 @@ export default function FaqItemsPage() {
   const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
   const openCreate = () => {
     setIsCreate(true);
@@ -66,6 +68,7 @@ export default function FaqItemsPage() {
     setTranslations(createEmptyTranslations(FAQ_FIELDS));
     setLocaleTab('tr');
     setActionError('');
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -83,6 +86,7 @@ export default function FaqItemsPage() {
         })
       );
       setLocaleTab('tr');
+      setFormErrors({});
       setDialogOpen(true);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
@@ -92,6 +96,8 @@ export default function FaqItemsPage() {
   const submitForm = async () => {
     setSaving(true);
     setActionError('');
+    const nextErrors = {};
+    let firstErrorLocale = 'tr';
 
     for (const { code, label } of [
       { code: 'en', label: 'EN' },
@@ -107,10 +113,9 @@ export default function FaqItemsPage() {
       }
 
       if (!question) {
-        setActionError(`${label} çevirisi için Soru zorunludur. Eksik alanı doldurun veya ${label} alanlarını boş bırakın.`);
-        setLocaleTab(code);
+        nextErrors[`translations.${code}.question`] = `${label} çevirisinde soru zorunludur.`;
+        firstErrorLocale = code;
         setSaving(false);
-        return;
       }
     }
 
@@ -118,11 +123,18 @@ export default function FaqItemsPage() {
     const root = trAsRoot(translations, { question: 'question', answer: 'answer' });
 
     if (!String(root.question || '').trim()) {
-      setActionError('Soru zorunludur.');
-      setLocaleTab('tr');
+      nextErrors['translations.tr.question'] = 'Soru zorunludur.';
+      firstErrorLocale = 'tr';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors);
+      setLocaleTab(firstErrorLocale);
       setSaving(false);
       return;
     }
+
+    setFormErrors({});
 
     const payload = {
       question: root.question,
@@ -276,11 +288,15 @@ export default function FaqItemsPage() {
                     <TextField
                       label="Soru"
                       value={row.question}
-                      onChange={(event) =>
-                        setTranslations((prev) => updateLocaleField(prev, locale, 'question', event.target.value))
-                      }
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setTranslations((prev) => updateLocaleField(prev, locale, 'question', value));
+                        setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.question`));
+                      }}
                       required={locale === 'tr'}
                       fullWidth
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.question`))}
+                      helperText={withFieldError(getFieldError(formErrors, `translations.${locale}.question`), lengthFieldProps(row.question, FIELD_LIMITS.faq.question).helperText)}
                       {...lengthFieldProps(row.question, FIELD_LIMITS.faq.question)}
                     />
                     <TextField
@@ -306,7 +322,6 @@ export default function FaqItemsPage() {
             onClick={submitForm}
             disabled={
               saving ||
-              !String(translations?.tr?.question || '').trim() ||
               translationsHaveLengthErrors(translations, FIELD_LIMITS.faq)
             }
           >

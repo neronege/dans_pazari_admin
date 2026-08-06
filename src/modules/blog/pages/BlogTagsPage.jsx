@@ -30,6 +30,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
 import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const TAG_FIELDS = { name: '', slug: '' };
@@ -42,12 +43,14 @@ export default function BlogTagsPage() {
   const [localeTab, setLocaleTab] = useState('tr');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
   const openCreate = () => {
     setEditingId(null);
     setTranslations(createEmptyTranslations(TAG_FIELDS));
     setLocaleTab('tr');
     setActionError('');
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -61,6 +64,7 @@ export default function BlogTagsPage() {
     );
     setLocaleTab('tr');
     setActionError('');
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -72,10 +76,13 @@ export default function BlogTagsPage() {
     const root = trAsRoot(translations, { name: 'name', slug: 'slug' });
 
     if (!String(root.name || '').trim()) {
-      setActionError('Etiket adı zorunludur.');
+      setFormErrors({ 'translations.tr.name': 'Etiket adı zorunludur.' });
+      setLocaleTab('tr');
       setSaving(false);
       return;
     }
+
+    setFormErrors({});
 
     const payload = {
       ...root,
@@ -193,14 +200,18 @@ export default function BlogTagsPage() {
                     <TextField
                       label="Ad"
                       value={row.name}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.target.value;
                         setTranslations((prev) =>
-                          updateLocaleField(prev, locale, 'name', event.target.value, {
+                          updateLocaleField(prev, locale, 'name', value, {
                             autoSlugFrom: 'name'
                           })
-                        )
-                      }
+                        );
+                        setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.name`));
+                      }}
                       required={locale === 'tr'}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.name`))}
+                      helperText={withFieldError(getFieldError(formErrors, `translations.${locale}.name`), lengthFieldProps(row.name, FIELD_LIMITS.blogTag.name).helperText)}
                       {...lengthFieldProps(row.name, FIELD_LIMITS.blogTag.name)}
                     />
                     <TextField
@@ -224,7 +235,6 @@ export default function BlogTagsPage() {
             onClick={submitForm}
             disabled={
               saving ||
-              !String(translations?.tr?.name || '').trim() ||
               translationsHaveLengthErrors(translations, FIELD_LIMITS.blogTag)
             }
           >
