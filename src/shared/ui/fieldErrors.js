@@ -15,3 +15,12 @@ export function clearFieldError(errors, key) {
 export function withFieldError(errorText, helperText = '') {
   return errorText || helperText || '';
 }
+
+export function getLocaleTabFromFieldErrors(errors) {
+  const key = Object.keys(errors || {}).find((fieldKey) => /^translations\.(tr|en|ru)\./.test(fieldKey));
+  if (!key) {
+    return '';
+  }
+
+  return key.split('.')[1] || '';
+}

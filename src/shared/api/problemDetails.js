@@ -22,6 +22,30 @@ function pickValidationErrors(problem) {
   return null;
 }
 
+function normalizeFieldKey(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\[(\w+)\]/g, '.$1')
+    .replace(/^\.+|\.+$/g, '')
+    .toLowerCase();
+}
+
+function pickFirstValidationMessage(value) {
+  if (Array.isArray(value)) {
+    return value.find(Boolean) ? String(value.find(Boolean)) : '';
+  }
+
+  return value ? String(value) : '';
+}
+
+function keyMatchesAlias(problemKey, alias) {
+  if (!problemKey || !alias) {
+    return false;
+  }
+
+  return problemKey === alias || problemKey.endsWith(`.${alias}`);
+}
+
 export function toProblemDetails(status, payload, fallbackMessage = 'Beklenmeyen bir hata olustu.') {
   const isObjectPayload = payload && typeof payload === 'object';
 
@@ -72,6 +96,34 @@ export function getHumanReadableError(problem) {
   }
 
   return 'Islem basarisiz.';
+}
+
+export function getProblemFieldErrors(problem, aliasesByField = {}) {
+  const validationErrors = problem?.errors;
+  if (!validationErrors || typeof validationErrors !== 'object') {
+    return {};
+  }
+
+  const normalizedProblemEntries = Object.entries(validationErrors).map(([key, value]) => [normalizeFieldKey(key), value]);
+  const result = {};
+
+  Object.entries(aliasesByField).forEach(([fieldName, aliases]) => {
+    const normalizedAliases = [fieldName, ...(Array.isArray(aliases) ? aliases : [aliases])]
+      .map(normalizeFieldKey)
+      .filter(Boolean);
+
+    const match = normalizedProblemEntries.find(([problemKey]) => normalizedAliases.some((alias) => keyMatchesAlias(problemKey, alias)));
+    if (!match) {
+      return;
+    }
+
+    const message = pickFirstValidationMessage(match[1]);
+    if (message) {
+      result[fieldName] = message;
+    }
+  });
+
+  return result;
 }
 
 export function getRequestErrorMessage(error, fallback = 'Islem basarisiz.') {

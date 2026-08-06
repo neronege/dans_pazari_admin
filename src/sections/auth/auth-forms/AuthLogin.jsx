@@ -23,7 +23,7 @@ import IconButton from 'components/@extended/IconButton';
 import AnimateButton from 'components/@extended/AnimateButton';
 import { APP_DEFAULT_PATH } from 'config';
 import { loginAndStoreSession } from 'modules/auth/api';
-import { getHumanReadableError } from 'shared/api';
+import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 
 // assets
 import EyeOutlined from '@ant-design/icons/EyeOutlined';
@@ -56,7 +56,7 @@ export default function AuthLogin() {
             .test('no-leading-trailing-whitespace', 'Sifre bosluk ile baslayamaz veya bitemez', (value) => value === value.trim())
             .max(64, 'Sifre en fazla 64 karakter olabilir')
         })}
-        onSubmit={async (values, { setErrors, setSubmitting }) => {
+        onSubmit={async (values, { setErrors, setSubmitting, setTouched }) => {
           try {
             await loginAndStoreSession({
               email: values.email,
@@ -66,7 +66,19 @@ export default function AuthLogin() {
 
             router.replace(APP_DEFAULT_PATH);
           } catch (error) {
-            setErrors({ submit: getHumanReadableError(error?.problem) || error?.message });
+            const apiFieldErrors = getProblemFieldErrors(error?.problem, {
+              email: ['email', 'eMail', 'username', 'userName'],
+              password: ['password', 'sifre']
+            });
+
+            if (Object.keys(apiFieldErrors).length > 0) {
+              setTouched({ email: true, password: true }, false);
+            }
+
+            setErrors({
+              ...apiFieldErrors,
+              submit: Object.keys(apiFieldErrors).length > 0 ? '' : getHumanReadableError(error?.problem) || error?.message
+            });
           } finally {
             setSubmitting(false);
           }

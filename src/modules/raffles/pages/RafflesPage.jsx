@@ -31,7 +31,7 @@ import {
   updateRaffle
 } from 'modules/raffles/api/raffles.service';
 import useRaffles from 'modules/raffles/hooks/useRaffles';
-import { getHumanReadableError } from 'shared/api';
+import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 import { clearFieldError, getFieldError } from 'shared/ui/fieldErrors';
 
 const initialForm = {
@@ -175,7 +175,18 @@ export default function RafflesPage() {
       setDialogOpen(false);
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
+        title: ['title'],
+        startsAtUtc: ['startsAtUtc', 'startDate'],
+        endsAtUtc: ['endsAtUtc', 'endDate'],
+        description: ['description']
+      });
+
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...apiFieldErrors }));
+      }
+
+      setActionError(Object.keys(apiFieldErrors).length > 0 ? '' : getHumanReadableError(requestError?.problem) || requestError?.message);
     } finally {
       setSaving(false);
     }

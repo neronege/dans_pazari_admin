@@ -41,7 +41,7 @@ import {
   BLOG_IMAGE,
   validateBlogImageFile
 } from 'modules/blog/utils/blogImageConstraints';
-import { getHumanReadableError } from 'shared/api';
+import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -52,7 +52,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
-import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
+import { clearFieldError, getFieldError, getLocaleTabFromFieldErrors, withFieldError } from 'shared/ui/fieldErrors';
 import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const MAX_PHOTOS = BLOG_IMAGE.maxCount;
@@ -345,7 +345,27 @@ export default function BlogPostsPage() {
       setDialogOpen(false);
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
+        photos: ['photos', 'photo', 'images'],
+        'translations.tr.title': ['title'],
+        'translations.tr.summary': ['summary'],
+        'translations.tr.contentHtml': ['contentHtml', 'content'],
+        'translations.tr.slug': ['slug'],
+        'translations.tr.metaTitle': ['metaTitle'],
+        'translations.tr.metaDescription': ['metaDescription'],
+        categoryId: ['categoryId', 'category.id'],
+        tagIds: ['tagIds', 'tags']
+      });
+
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...apiFieldErrors }));
+        const nextLocale = getLocaleTabFromFieldErrors(apiFieldErrors);
+        if (nextLocale) {
+          setLocaleTab(nextLocale);
+        }
+      }
+
+      setActionError(Object.keys(apiFieldErrors).length > 0 ? '' : getHumanReadableError(requestError?.problem) || requestError?.message);
     } finally {
       setSaving(false);
     }

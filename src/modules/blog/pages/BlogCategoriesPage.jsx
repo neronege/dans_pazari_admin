@@ -26,7 +26,7 @@ import {
   updateBlogCategory
 } from 'modules/blog/api/blog.service';
 import useBlogCategories from 'modules/blog/hooks/useBlogCategories';
-import { getHumanReadableError } from 'shared/api';
+import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -37,7 +37,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
-import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
+import { clearFieldError, getFieldError, getLocaleTabFromFieldErrors, withFieldError } from 'shared/ui/fieldErrors';
 import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const CATEGORY_FIELDS = { name: '', slug: '', description: '' };
@@ -110,7 +110,21 @@ export default function BlogCategoriesPage() {
       setDialogOpen(false);
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
+        'translations.tr.name': ['name'],
+        'translations.tr.slug': ['slug'],
+        'translations.tr.description': ['description']
+      });
+
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...apiFieldErrors }));
+        const nextLocale = getLocaleTabFromFieldErrors(apiFieldErrors);
+        if (nextLocale) {
+          setLocaleTab(nextLocale);
+        }
+      }
+
+      setActionError(Object.keys(apiFieldErrors).length > 0 ? '' : getHumanReadableError(requestError?.problem) || requestError?.message);
     } finally {
       setSaving(false);
     }

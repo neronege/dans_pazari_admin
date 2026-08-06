@@ -51,7 +51,7 @@ import useSWR from 'swr';
 import ArrowUpOutlined from '@ant-design/icons/ArrowUpOutlined';
 import ArrowDownOutlined from '@ant-design/icons/ArrowDownOutlined';
 import IconButton from '@mui/material/IconButton';
-import { getRequestErrorMessage } from 'shared/api';
+import { getProblemFieldErrors, getRequestErrorMessage } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -60,6 +60,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { clearFieldError, getLocaleTabFromFieldErrors, withFieldError } from 'shared/ui/fieldErrors';
 import { FIELD_LIMITS, isOverLimit, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const EVENT_FIELDS = {
@@ -473,7 +474,24 @@ export default function EventsPage() {
       setExistingBannerUrl('');
       await refresh();
     } catch (requestError) {
-      setActionError(getRequestErrorMessage(requestError));
+      const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
+        'translations.tr.title': ['title', 'name'],
+        'translations.tr.description': ['description'],
+        categoryId: ['categoryId', 'category.id'],
+        venueId: ['venueId', 'venue.id'],
+        startsAtLocal: ['startsAtUtc', 'startsAtLocal', 'startDate'],
+        endsAtLocal: ['endsAtUtc', 'endsAtLocal', 'endDate']
+      });
+
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...apiFieldErrors }));
+        const nextLocale = getLocaleTabFromFieldErrors(apiFieldErrors);
+        if (nextLocale) {
+          setLocaleTab(nextLocale);
+        }
+      }
+
+      setActionError(Object.keys(apiFieldErrors).length > 0 ? '' : getRequestErrorMessage(requestError));
     } finally {
       setSaving(false);
     }
@@ -759,7 +777,17 @@ export default function EventsPage() {
       setSessionDialogOpen(false);
       await reloadOperations(opsEventId);
     } catch (requestError) {
-      setActionError(getRequestErrorMessage(requestError));
+      const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
+        startsAtLocal: ['startsAtUtc', 'startsAtLocal', 'startDate'],
+        endsAtLocal: ['endsAtUtc', 'endsAtLocal', 'endDate'],
+        doorOpensNote: ['doorOpensNote']
+      });
+
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setSessionFormErrors((prev) => ({ ...prev, ...apiFieldErrors }));
+      }
+
+      setActionError(Object.keys(apiFieldErrors).length > 0 ? '' : getRequestErrorMessage(requestError));
     } finally {
       setSessionSaving(false);
     }
@@ -1117,20 +1145,12 @@ export default function EventsPage() {
                               autoSlugFrom: 'title'
                             })
                           }));
-                          setFormErrors((prev) => {
-                            if (!prev[`translations.${locale}.title`]) {
-                              return prev;
-                            }
-
-                            const next = { ...prev };
-                            delete next[`translations.${locale}.title`];
-                            return next;
-                          });
+                          setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.title`));
                         }
                       }
                       required={locale === 'tr'}
                       error={Boolean(getErrorText(formErrors, `translations.${locale}.title`))}
-                      helperText={getErrorText(formErrors, `translations.${locale}.title`) || lengthFieldProps(row.title, FIELD_LIMITS.event.title).helperText}
+                      helperText={withFieldError(getErrorText(formErrors, `translations.${locale}.title`), lengthFieldProps(row.title, FIELD_LIMITS.event.title).helperText)}
                       {...lengthFieldProps(row.title, FIELD_LIMITS.event.title)}
                     />
                     <TextField
@@ -1154,15 +1174,7 @@ export default function EventsPage() {
                             ...prev,
                             translations: updateLocaleField(prev.translations, locale, 'description', value)
                           }));
-                          setFormErrors((prev) => {
-                            if (!prev[`translations.${locale}.description`]) {
-                              return prev;
-                            }
-
-                            const next = { ...prev };
-                            delete next[`translations.${locale}.description`];
-                            return next;
-                          });
+                          setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.description`));
                         }
                       }
                       multiline
@@ -1224,15 +1236,7 @@ export default function EventsPage() {
                 onChange={(event) => {
                   const value = event.target.value;
                   setForm((prev) => ({ ...prev, categoryId: value }));
-                  setFormErrors((prev) => {
-                    if (!prev.categoryId) {
-                      return prev;
-                    }
-
-                    const next = { ...prev };
-                    delete next.categoryId;
-                    return next;
-                  });
+                  setFormErrors((prev) => clearFieldError(prev, 'categoryId'));
                 }}
                 fullWidth
                 required
@@ -1254,15 +1258,7 @@ export default function EventsPage() {
                 onChange={(event) => {
                   const value = event.target.value;
                   setForm((prev) => ({ ...prev, venueId: value }));
-                  setFormErrors((prev) => {
-                    if (!prev.venueId) {
-                      return prev;
-                    }
-
-                    const next = { ...prev };
-                    delete next.venueId;
-                    return next;
-                  });
+                  setFormErrors((prev) => clearFieldError(prev, 'venueId'));
                 }}
                 fullWidth
                 required
@@ -1286,15 +1282,7 @@ export default function EventsPage() {
                 onChange={(event) => {
                   const value = event.target.value;
                   setForm((prev) => ({ ...prev, startsAtLocal: value }));
-                  setFormErrors((prev) => {
-                    if (!prev.startsAtLocal) {
-                      return prev;
-                    }
-
-                    const next = { ...prev };
-                    delete next.startsAtLocal;
-                    return next;
-                  });
+                  setFormErrors((prev) => clearFieldError(prev, 'startsAtLocal'));
                 }}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
@@ -1309,15 +1297,7 @@ export default function EventsPage() {
                 onChange={(event) => {
                   const value = event.target.value;
                   setForm((prev) => ({ ...prev, endsAtLocal: value }));
-                  setFormErrors((prev) => {
-                    if (!prev.endsAtLocal) {
-                      return prev;
-                    }
-
-                    const next = { ...prev };
-                    delete next.endsAtLocal;
-                    return next;
-                  });
+                  setFormErrors((prev) => clearFieldError(prev, 'endsAtLocal'));
                 }}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
@@ -1708,15 +1688,7 @@ export default function EventsPage() {
               onChange={(event) => {
                 const value = event.target.value;
                 setSessionForm((prev) => ({ ...prev, startsAtLocal: value }));
-                setSessionFormErrors((prev) => {
-                  if (!prev.startsAtLocal) {
-                    return prev;
-                  }
-
-                  const next = { ...prev };
-                  delete next.startsAtLocal;
-                  return next;
-                });
+                setSessionFormErrors((prev) => clearFieldError(prev, 'startsAtLocal'));
               }}
               InputLabelProps={{ shrink: true }}
               fullWidth
@@ -1731,15 +1703,7 @@ export default function EventsPage() {
               onChange={(event) => {
                 const value = event.target.value;
                 setSessionForm((prev) => ({ ...prev, endsAtLocal: value }));
-                setSessionFormErrors((prev) => {
-                  if (!prev.endsAtLocal) {
-                    return prev;
-                  }
-
-                  const next = { ...prev };
-                  delete next.endsAtLocal;
-                  return next;
-                });
+                setSessionFormErrors((prev) => clearFieldError(prev, 'endsAtLocal'));
               }}
               InputLabelProps={{ shrink: true }}
               fullWidth

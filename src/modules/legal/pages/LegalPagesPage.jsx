@@ -27,7 +27,7 @@ import {
   upsertLegalPage
 } from 'modules/legal/api/legal.service';
 import useLegalPages from 'modules/legal/hooks/useLegalPages';
-import { getHumanReadableError } from 'shared/api';
+import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -37,7 +37,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
-import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
+import { clearFieldError, getFieldError, getLocaleTabFromFieldErrors, withFieldError } from 'shared/ui/fieldErrors';
 
 const LEGAL_FIELDS = { title: '', bodyHtml: '' };
 
@@ -149,7 +149,21 @@ export default function LegalPagesPage() {
       setDialogOpen(false);
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
+        slug: ['slug'],
+        'translations.tr.title': ['title'],
+        'translations.tr.bodyHtml': ['bodyHtml', 'contentHtml']
+      });
+
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...apiFieldErrors }));
+        const nextLocale = getLocaleTabFromFieldErrors(apiFieldErrors);
+        if (nextLocale) {
+          setLocaleTab(nextLocale);
+        }
+      }
+
+      setActionError(Object.keys(apiFieldErrors).length > 0 ? '' : getHumanReadableError(requestError?.problem) || requestError?.message);
     } finally {
       setSaving(false);
     }

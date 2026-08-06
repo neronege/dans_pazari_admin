@@ -30,7 +30,7 @@ import {
   updateVenue,
   updateVenueActive
 } from 'modules/venues/api/venues.service';
-import { getHumanReadableError } from 'shared/api';
+import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -39,7 +39,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
-import { clearFieldError, getFieldError, withFieldError } from 'shared/ui/fieldErrors';
+import { clearFieldError, getFieldError, getLocaleTabFromFieldErrors, withFieldError } from 'shared/ui/fieldErrors';
 import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors, isOverLimit } from 'shared/ui/fieldLength';
 
 const VENUE_FIELDS = { name: '', slug: '', description: '' };
@@ -433,7 +433,24 @@ export default function VenuesPage() {
       setExistingPhotos([]);
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
+        'translations.tr.name': ['name'],
+        address: ['address'],
+        district: ['district'],
+        city: ['city'],
+        capacity: ['capacity'],
+        videoUrl: ['videoUrl']
+      });
+
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...apiFieldErrors }));
+        const nextLocale = getLocaleTabFromFieldErrors(apiFieldErrors);
+        if (nextLocale) {
+          setLocaleTab(nextLocale);
+        }
+      }
+
+      setActionError(Object.keys(apiFieldErrors).length > 0 ? '' : getHumanReadableError(requestError?.problem) || requestError?.message);
     } finally {
       setSaving(false);
     }

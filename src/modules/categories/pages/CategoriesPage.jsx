@@ -32,7 +32,7 @@ import {
   updateCategory,
   updateCategoryActive
 } from 'modules/categories/api/categories.service';
-import { getHumanReadableError } from 'shared/api';
+import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -41,7 +41,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
-import { clearFieldError, getFieldError } from 'shared/ui/fieldErrors';
+import { clearFieldError, getFieldError, getLocaleTabFromFieldErrors } from 'shared/ui/fieldErrors';
 
 const CATEGORY_FIELDS = { name: '', slug: '', description: '' };
 
@@ -171,7 +171,21 @@ export default function CategoriesPage() {
       setDialogOpen(false);
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
+        'translations.tr.name': ['name'],
+        parentCategoryId: ['parentCategoryId', 'parentId'],
+        sortOrder: ['sortOrder']
+      });
+
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...apiFieldErrors }));
+        const nextLocale = getLocaleTabFromFieldErrors(apiFieldErrors);
+        if (nextLocale) {
+          setLocaleTab(nextLocale);
+        }
+      }
+
+      setActionError(Object.keys(apiFieldErrors).length > 0 ? '' : getHumanReadableError(requestError?.problem) || requestError?.message);
     } finally {
       setSaving(false);
     }
