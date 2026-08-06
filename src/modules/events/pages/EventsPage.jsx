@@ -51,7 +51,7 @@ import useSWR from 'swr';
 import ArrowUpOutlined from '@ant-design/icons/ArrowUpOutlined';
 import ArrowDownOutlined from '@ant-design/icons/ArrowDownOutlined';
 import IconButton from '@mui/material/IconButton';
-import { getHumanReadableError } from 'shared/api';
+import { getRequestErrorMessage } from 'shared/api';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -333,7 +333,7 @@ export default function EventsPage() {
       setGalleryFiles([]);
       setDialogOpen(true);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -431,7 +431,7 @@ export default function EventsPage() {
       setExistingBannerUrl('');
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     } finally {
       setSaving(false);
     }
@@ -447,7 +447,7 @@ export default function EventsPage() {
       }
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -467,7 +467,7 @@ export default function EventsPage() {
       await Promise.all(reordered.map((item, order) => setEventSortOrder(item.id, order)));
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -482,7 +482,7 @@ export default function EventsPage() {
       await cancelEvent(event.id);
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -497,7 +497,7 @@ export default function EventsPage() {
       await deleteEvent(event.id);
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -530,7 +530,7 @@ export default function EventsPage() {
       await reloadOperations(eventId);
       setOpsDialogOpen(true);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -559,7 +559,7 @@ export default function EventsPage() {
         await reloadOperations(coverTargetEventId);
       }
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     } finally {
       event.target.value = '';
       setCoverTargetEventId(null);
@@ -581,7 +581,7 @@ export default function EventsPage() {
         await reloadOperations(eventId);
       }
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -600,7 +600,7 @@ export default function EventsPage() {
         await reloadOperations(bannerTargetEventId);
       }
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     } finally {
       event.target.value = '';
       setBannerTargetEventId(null);
@@ -622,7 +622,7 @@ export default function EventsPage() {
         await reloadOperations(eventId);
       }
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -637,7 +637,7 @@ export default function EventsPage() {
       setExistingPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
       await refresh();
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -654,7 +654,7 @@ export default function EventsPage() {
       const skippedCount = result?.skippedCount ?? 0;
       window.alert(`Toplu iade isteği oluşturuldu. Oluşan: ${createdCount}, Atlanan: ${skippedCount}`);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -704,7 +704,7 @@ export default function EventsPage() {
       setSessionDialogOpen(false);
       await reloadOperations(opsEventId);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     } finally {
       setSessionSaving(false);
     }
@@ -725,7 +725,7 @@ export default function EventsPage() {
       await cancelEventSession(opsEventId, session.id);
       await reloadOperations(opsEventId);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -744,7 +744,7 @@ export default function EventsPage() {
       await deleteEventSession(opsEventId, session.id);
       await reloadOperations(opsEventId);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -794,7 +794,7 @@ export default function EventsPage() {
       });
       await reloadOperations(opsEventId);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -832,7 +832,7 @@ export default function EventsPage() {
       });
       await reloadOperations(opsEventId);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -851,7 +851,7 @@ export default function EventsPage() {
       await deleteTicketType(opsEventId, session.id, ticketType.id);
       await reloadOperations(opsEventId);
     } catch (requestError) {
-      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+      setActionError(getRequestErrorMessage(requestError));
     }
   };
 
@@ -1044,6 +1044,7 @@ export default function EventsPage() {
         <DialogTitle>{editingId ? 'Etkinlik Düzenle' : 'Etkinlik Oluştur'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
+            {actionError ? <Alert severity="error">{actionError}</Alert> : null}
             <TranslationLocaleTabs value={localeTab} onChange={setLocaleTab}>
               {(locale) => {
                 const row = form.translations?.[locale] || EVENT_FIELDS;
@@ -1478,6 +1479,7 @@ export default function EventsPage() {
         <DialogTitle>Seans ve Bilet Tipleri - {opsEventTitle}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
+            {actionError ? <Alert severity="error">{actionError}</Alert> : null}
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
               <Button variant="contained" onClick={() => openSessionDialog()}>
                 Yeni Seans
@@ -1563,6 +1565,7 @@ export default function EventsPage() {
         <DialogTitle>{sessionEditingId ? 'Seans Düzenle' : 'Yeni Seans'}</DialogTitle>
         <DialogContent>
           <Stack sx={{ gap: 2, mt: 1 }}>
+            {actionError ? <Alert severity="error">{actionError}</Alert> : null}
             <TextField
               label="Başlangıç"
               type="datetime-local"

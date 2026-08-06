@@ -47,7 +47,19 @@ export function getHumanReadableError(problem) {
     return 'Islem basarisiz.';
   }
 
-  if (problem.detail) {
+  const validationErrors = problem.errors;
+  if (validationErrors && typeof validationErrors === 'object') {
+    const messages = Object.values(validationErrors)
+      .flatMap((value) => (Array.isArray(value) ? value : [value]))
+      .filter(Boolean)
+      .map(String);
+
+    if (messages.length > 0) {
+      return messages.join(' ');
+    }
+  }
+
+  if (problem.detail && problem.detail !== 'Beklenmeyen bir hata olustu.') {
     return problem.detail;
   }
 
@@ -55,5 +67,14 @@ export function getHumanReadableError(problem) {
     return problem.title;
   }
 
+  if (problem.detail) {
+    return problem.detail;
+  }
+
   return 'Islem basarisiz.';
 }
+
+export function getRequestErrorMessage(error, fallback = 'Islem basarisiz.') {
+  return getHumanReadableError(error?.problem) || error?.message || fallback;
+}
+
