@@ -60,6 +60,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { FIELD_LIMITS, isOverLimit, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const EVENT_FIELDS = {
   title: '',
@@ -1060,6 +1061,7 @@ export default function EventsPage() {
                         }))
                       }
                       required={locale === 'tr'}
+                      {...lengthFieldProps(row.title, FIELD_LIMITS.event.title)}
                     />
                     <TextField
                       label="Slug"
@@ -1070,6 +1072,7 @@ export default function EventsPage() {
                           translations: updateLocaleField(prev.translations, locale, 'slug', event.target.value)
                         }))
                       }
+                      {...lengthFieldProps(row.slug, FIELD_LIMITS.event.slug)}
                     />
                     <TextField
                       label="Açıklama"
@@ -1095,6 +1098,11 @@ export default function EventsPage() {
                       }
                       multiline
                       minRows={2}
+                      {...lengthFieldProps(
+                        row.shortDescription,
+                        FIELD_LIMITS.event.shortDescription,
+                        'Liste kartlarında görünen kısa metin.'
+                      )}
                     />
                     <TextField
                       label="Meta Başlık"
@@ -1105,6 +1113,7 @@ export default function EventsPage() {
                           translations: updateLocaleField(prev.translations, locale, 'metaTitle', event.target.value)
                         }))
                       }
+                      {...lengthFieldProps(row.metaTitle, FIELD_LIMITS.event.metaTitle)}
                     />
                     <TextField
                       label="Meta Açıklama"
@@ -1117,6 +1126,7 @@ export default function EventsPage() {
                       }
                       multiline
                       minRows={2}
+                      {...lengthFieldProps(row.metaDescription, FIELD_LIMITS.event.metaDescription)}
                     />
                   </Stack>
                 );
@@ -1385,7 +1395,11 @@ export default function EventsPage() {
               label="Video URL (opsiyonel)"
               value={form.videoUrl}
               onChange={(event) => setForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
-              helperText="YouTube, Vimeo veya doğrudan https video linki."
+              {...lengthFieldProps(
+                form.videoUrl,
+                FIELD_LIMITS.event.videoUrl,
+                'YouTube, Vimeo veya doğrudan https video linki.'
+              )}
               fullWidth
             />
             <Typography variant="subtitle2">Düzenleyen Kişi (opsiyonel)</Typography>
@@ -1395,12 +1409,14 @@ export default function EventsPage() {
                 value={form.organizerFirstName}
                 onChange={(event) => setForm((prev) => ({ ...prev, organizerFirstName: event.target.value }))}
                 fullWidth
+                {...lengthFieldProps(form.organizerFirstName, FIELD_LIMITS.event.organizerFirstName)}
               />
               <TextField
                 label="Soyad"
                 value={form.organizerLastName}
                 onChange={(event) => setForm((prev) => ({ ...prev, organizerLastName: event.target.value }))}
                 fullWidth
+                {...lengthFieldProps(form.organizerLastName, FIELD_LIMITS.event.organizerLastName)}
               />
             </Stack>
             <TextField
@@ -1423,7 +1439,17 @@ export default function EventsPage() {
               !String(form.translations?.tr?.title || '').trim() ||
               !String(form.translations?.tr?.description || '').trim() ||
               !form.categoryId ||
-              !form.venueId
+              !form.venueId ||
+              translationsHaveLengthErrors(form.translations, {
+                title: FIELD_LIMITS.event.title,
+                slug: FIELD_LIMITS.event.slug,
+                shortDescription: FIELD_LIMITS.event.shortDescription,
+                metaTitle: FIELD_LIMITS.event.metaTitle,
+                metaDescription: FIELD_LIMITS.event.metaDescription
+              }) ||
+              isOverLimit(form.videoUrl, FIELD_LIMITS.event.videoUrl) ||
+              isOverLimit(form.organizerFirstName, FIELD_LIMITS.event.organizerFirstName) ||
+              isOverLimit(form.organizerLastName, FIELD_LIMITS.event.organizerLastName)
             }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}

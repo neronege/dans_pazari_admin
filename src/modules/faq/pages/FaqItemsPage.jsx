@@ -36,6 +36,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const FAQ_FIELDS = { question: '', answer: '' };
 
@@ -280,6 +281,7 @@ export default function FaqItemsPage() {
                       }
                       required={locale === 'tr'}
                       fullWidth
+                      {...lengthFieldProps(row.question, FIELD_LIMITS.faq.question)}
                     />
                     <TextField
                       label="Cevap"
@@ -302,7 +304,11 @@ export default function FaqItemsPage() {
           <Button
             variant="contained"
             onClick={submitForm}
-            disabled={saving || !String(translations?.tr?.question || '').trim()}
+            disabled={
+              saving ||
+              !String(translations?.tr?.question || '').trim() ||
+              translationsHaveLengthErrors(translations, FIELD_LIMITS.faq)
+            }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>

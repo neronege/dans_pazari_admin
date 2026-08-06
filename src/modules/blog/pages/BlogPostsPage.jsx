@@ -52,6 +52,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const MAX_PHOTOS = BLOG_IMAGE.maxCount;
 
@@ -518,6 +519,7 @@ export default function BlogPostsPage() {
                         }))
                       }
                       required={locale === 'tr'}
+                      {...lengthFieldProps(row.title, FIELD_LIMITS.blogPost.title)}
                     />
                     <TextField
                       label="Özet"
@@ -531,6 +533,7 @@ export default function BlogPostsPage() {
                       multiline
                       minRows={2}
                       required={locale === 'tr'}
+                      {...lengthFieldProps(row.summary, FIELD_LIMITS.blogPost.summary)}
                     />
                     <TextField
                       label="İçerik"
@@ -555,6 +558,7 @@ export default function BlogPostsPage() {
                           translations: updateLocaleField(prev.translations, locale, 'slug', event.target.value)
                         }))
                       }
+                      {...lengthFieldProps(row.slug, FIELD_LIMITS.blogPost.slug)}
                     />
                     <TextField
                       label="Meta Başlık"
@@ -565,6 +569,7 @@ export default function BlogPostsPage() {
                           translations: updateLocaleField(prev.translations, locale, 'metaTitle', event.target.value)
                         }))
                       }
+                      {...lengthFieldProps(row.metaTitle, FIELD_LIMITS.blogPost.metaTitle)}
                     />
                     <TextField
                       label="Meta Açıklama"
@@ -582,6 +587,7 @@ export default function BlogPostsPage() {
                       }
                       multiline
                       minRows={2}
+                      {...lengthFieldProps(row.metaDescription, FIELD_LIMITS.blogPost.metaDescription)}
                     />
                   </Stack>
                 );
@@ -711,7 +717,8 @@ export default function BlogPostsPage() {
               !hasRequiredPhoto ||
               !String(form.translations?.tr?.title || '').trim() ||
               !String(form.translations?.tr?.summary || '').trim() ||
-              !String(form.translations?.tr?.contentHtml || '').trim()
+              !String(form.translations?.tr?.contentHtml || '').trim() ||
+              translationsHaveLengthErrors(form.translations, FIELD_LIMITS.blogPost)
             }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}

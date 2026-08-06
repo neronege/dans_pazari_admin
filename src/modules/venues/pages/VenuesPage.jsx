@@ -39,6 +39,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors, isOverLimit } from 'shared/ui/fieldLength';
 
 const VENUE_FIELDS = { name: '', slug: '', description: '' };
 
@@ -562,8 +563,14 @@ export default function VenuesPage() {
                         }))
                       }
                       required={locale === 'tr'}
+                      {...lengthFieldProps(row.name, FIELD_LIMITS.venue.name)}
                     />
-                    <TextField label="Slug" value={row.slug} slotProps={{ input: { readOnly: true } }} />
+                    <TextField
+                      label="Slug"
+                      value={row.slug}
+                      slotProps={{ input: { readOnly: true } }}
+                      {...lengthFieldProps(row.slug, FIELD_LIMITS.venue.slug)}
+                    />
                     <TextField
                       label="Açıklama"
                       value={row.description}
@@ -591,12 +598,14 @@ export default function VenuesPage() {
               label="İlçe"
               value={form.district}
               onChange={(event) => setForm((prev) => ({ ...prev, district: event.target.value }))}
+              {...lengthFieldProps(form.district, FIELD_LIMITS.venue.district)}
             />
             <TextField
               label="Şehir"
               value={form.city}
               onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
               required
+              {...lengthFieldProps(form.city, FIELD_LIMITS.venue.city)}
             />
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
               <TextField type="number" label="Enlem" value={form.latitude} slotProps={{ input: { readOnly: true } }} fullWidth />
@@ -686,7 +695,11 @@ export default function VenuesPage() {
               label="Video URL (opsiyonel)"
               value={form.videoUrl}
               onChange={(event) => setForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
-              helperText="YouTube, Vimeo veya doğrudan https video linki."
+              {...lengthFieldProps(
+                form.videoUrl,
+                FIELD_LIMITS.venue.videoUrl,
+                'YouTube, Vimeo veya doğrudan https video linki.'
+              )}
               fullWidth
             />
             <FormControlLabel
@@ -706,7 +719,14 @@ export default function VenuesPage() {
               saving ||
               !String(form.translations?.tr?.name || '').trim() ||
               !form.city.trim() ||
-              !String(form.address || '').trim()
+              !String(form.address || '').trim() ||
+              translationsHaveLengthErrors(form.translations, {
+                name: FIELD_LIMITS.venue.name,
+                slug: FIELD_LIMITS.venue.slug
+              }) ||
+              isOverLimit(form.city, FIELD_LIMITS.venue.city) ||
+              isOverLimit(form.district, FIELD_LIMITS.venue.district) ||
+              isOverLimit(form.videoUrl, FIELD_LIMITS.venue.videoUrl)
             }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}

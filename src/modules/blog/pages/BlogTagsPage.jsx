@@ -30,6 +30,7 @@ import {
   updateLocaleField
 } from 'shared/i18n/contentLocales';
 import TranslationLocaleTabs from 'shared/i18n/TranslationLocaleTabs';
+import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors } from 'shared/ui/fieldLength';
 
 const TAG_FIELDS = { name: '', slug: '' };
 
@@ -200,6 +201,7 @@ export default function BlogTagsPage() {
                         )
                       }
                       required={locale === 'tr'}
+                      {...lengthFieldProps(row.name, FIELD_LIMITS.blogTag.name)}
                     />
                     <TextField
                       label="Slug"
@@ -207,6 +209,7 @@ export default function BlogTagsPage() {
                       onChange={(event) =>
                         setTranslations((prev) => updateLocaleField(prev, locale, 'slug', event.target.value))
                       }
+                      {...lengthFieldProps(row.slug, FIELD_LIMITS.blogTag.slug)}
                     />
                   </Stack>
                 );
@@ -219,7 +222,11 @@ export default function BlogTagsPage() {
           <Button
             variant="contained"
             onClick={submitForm}
-            disabled={saving || !String(translations?.tr?.name || '').trim()}
+            disabled={
+              saving ||
+              !String(translations?.tr?.name || '').trim() ||
+              translationsHaveLengthErrors(translations, FIELD_LIMITS.blogTag)
+            }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </Button>
