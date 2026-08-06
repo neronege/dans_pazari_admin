@@ -28,12 +28,12 @@ export const FIELD_LIMITS = {
   faq: {
     question: 500
   },
-  event: {
+    event: {
     title: 250,
     slug: 280,
     shortDescription: 2000,
     metaTitle: 200,
-    metaDescription: 400,
+    metaDescription: 1000,
     videoUrl: 1000,
     organizerFirstName: 100,
     organizerLastName: 100
