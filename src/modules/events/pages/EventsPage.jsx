@@ -644,7 +644,7 @@ export default function EventsPage() {
   const onCoverDelete = async (eventId) => {
     const confirmed = window.confirm('Etkinlik kapağını silmek istiyor musunuz?');
     if (!confirmed) {
-      return;
+      return false;
     }
 
     try {
@@ -655,8 +655,11 @@ export default function EventsPage() {
       if (opsDialogOpen && opsEventId === eventId) {
         await reloadOperations(eventId);
       }
+
+      return true;
     } catch (requestError) {
       setActionError(getRequestErrorMessage(requestError));
+      return false;
     }
   };
 
@@ -693,7 +696,7 @@ export default function EventsPage() {
   const onBannerDelete = async (eventId) => {
     const confirmed = window.confirm('Etkinlik banner görselini silmek istiyor musunuz?');
     if (!confirmed) {
-      return;
+      return false;
     }
 
     try {
@@ -704,8 +707,11 @@ export default function EventsPage() {
       if (opsDialogOpen && opsEventId === eventId) {
         await reloadOperations(eventId);
       }
+
+      return true;
     } catch (requestError) {
       setActionError(getRequestErrorMessage(requestError));
+      return false;
     }
   };
 
@@ -1363,20 +1369,25 @@ export default function EventsPage() {
                 />
               </Button>
               {coverPreviewUrl && (
-                <Box
-                  component="img"
-                  src={coverPreviewUrl}
-                  alt="Kapak önizleme"
-                  onClick={() => openImagePreview(coverPreviewUrl, 'Kapak Onizleme')}
-                  sx={{
-                    width: 96,
-                    height: 96,
-                    objectFit: 'cover',
-                    borderRadius: 1,
-                    border: (theme) => `1px solid ${theme.palette.divider}`,
-                    cursor: 'zoom-in'
-                  }}
-                />
+                <Stack sx={{ gap: 0.5, alignItems: 'flex-start' }}>
+                  <Box
+                    component="img"
+                    src={coverPreviewUrl}
+                    alt="Kapak önizleme"
+                    onClick={() => openImagePreview(coverPreviewUrl, 'Kapak Onizleme')}
+                    sx={{
+                      width: 96,
+                      height: 96,
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      cursor: 'zoom-in'
+                    }}
+                  />
+                  <Button size="small" color="error" onClick={() => setCoverFile(null)}>
+                    Sil
+                  </Button>
+                </Stack>
               )}
               {!coverPreviewUrl && editingId && existingCoverUrl && (
                 <Stack sx={{ gap: 0.5 }}>
@@ -1397,6 +1408,22 @@ export default function EventsPage() {
                       cursor: 'zoom-in'
                     }}
                   />
+                  <Button
+                    size="small"
+                    color="error"
+                    sx={{ alignSelf: 'flex-start' }}
+                    onClick={async () => {
+                      if (!editingId) {
+                        return;
+                      }
+                      const deleted = await onCoverDelete(editingId);
+                      if (deleted) {
+                        setExistingCoverUrl('');
+                      }
+                    }}
+                  >
+                    Sil
+                  </Button>
                 </Stack>
               )}
             </Stack>
@@ -1497,20 +1524,25 @@ export default function EventsPage() {
                 />
               </Button>
               {bannerPreviewUrl && (
-                <Box
-                  component="img"
-                  src={bannerPreviewUrl}
-                  alt="Banner önizleme"
-                  onClick={() => openImagePreview(bannerPreviewUrl, 'Banner Onizleme')}
-                  sx={{
-                    width: 140,
-                    height: 80,
-                    objectFit: 'cover',
-                    borderRadius: 1,
-                    border: (theme) => `1px solid ${theme.palette.divider}`,
-                    cursor: 'zoom-in'
-                  }}
-                />
+                <Stack sx={{ gap: 0.5, alignItems: 'flex-start' }}>
+                  <Box
+                    component="img"
+                    src={bannerPreviewUrl}
+                    alt="Banner önizleme"
+                    onClick={() => openImagePreview(bannerPreviewUrl, 'Banner Onizleme')}
+                    sx={{
+                      width: 140,
+                      height: 80,
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      cursor: 'zoom-in'
+                    }}
+                  />
+                  <Button size="small" color="error" onClick={() => setBannerFile(null)}>
+                    Sil
+                  </Button>
+                </Stack>
               )}
               {editingId && existingBannerUrl && (
                 <Stack sx={{ gap: 0.5 }}>
@@ -1531,6 +1563,22 @@ export default function EventsPage() {
                       cursor: 'zoom-in'
                     }}
                   />
+                  <Button
+                    size="small"
+                    color="error"
+                    sx={{ alignSelf: 'flex-start' }}
+                    onClick={async () => {
+                      if (!editingId) {
+                        return;
+                      }
+                      const deleted = await onBannerDelete(editingId);
+                      if (deleted) {
+                        setExistingBannerUrl('');
+                      }
+                    }}
+                  >
+                    Sil
+                  </Button>
                 </Stack>
               )}
             </Stack>

@@ -311,6 +311,14 @@ export default function BlogPostsPage() {
       firstErrorLocale = 'tr';
     }
 
+    if (!form.categoryId) {
+      nextErrors.categoryId = 'Kategori seçimi zorunludur.';
+    }
+
+    if (!Array.isArray(form.tagIds) || form.tagIds.length === 0) {
+      nextErrors.tagIds = 'En az 1 etiket seçimi zorunludur.';
+    }
+
     if (Object.keys(nextErrors).length > 0) {
       setFormErrors(nextErrors);
       setLocaleTab(firstErrorLocale);
