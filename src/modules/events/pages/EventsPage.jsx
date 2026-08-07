@@ -296,6 +296,8 @@ export default function EventsPage() {
     setExistingCoverUrl('');
     setExistingBannerUrl('');
     setActionError('');
+    setMediaPickError('');
+    setMediaWarnings([]);
     setFormErrors({});
     setDialogOpen(true);
   };
@@ -346,6 +348,8 @@ export default function EventsPage() {
       setCoverFile(null);
       setBannerFile(null);
       setGalleryFiles([]);
+      setMediaPickError('');
+      setMediaWarnings([]);
       setFormErrors({});
       setDialogOpen(true);
     } catch (requestError) {
@@ -365,6 +369,104 @@ export default function EventsPage() {
     if (bannerFile) {
       await uploadEventBanner(eventId, bannerFile);
     }
+  };
+
+  const validatePickedMediaFile = async (file, spec, fallbackMessage) => {
+    const result = await validateEventImageFile(file, spec);
+    if (!result.ok) {
+      return { ok: false, error: result.error || fallbackMessage };
+    }
+
+    return {
+      ok: true,
+      warning: result.warning || ''
+    };
+  };
+
+  const onPickCoverForForm = async (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const result = await validatePickedMediaFile(file, EVENT_COVER_IMAGE, 'Kapak görseli geçersiz.');
+      if (!result.ok) {
+        setMediaPickError(result.error);
+        return;
+      }
+
+      setMediaPickError('');
+      setMediaWarnings(result.warning ? [result.warning] : []);
+      setCoverFile(file);
+    } catch {
+      setMediaPickError('Kapak görseli doğrulanamadı.');
+    }
+  };
+
+  const onPickBannerForForm = async (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const result = await validatePickedMediaFile(file, EVENT_COVER_IMAGE, 'Banner görseli geçersiz.');
+      if (!result.ok) {
+        setMediaPickError(result.error);
+        return;
+      }
+
+      setMediaPickError('');
+      setMediaWarnings(result.warning ? [result.warning] : []);
+      setBannerFile(file);
+    } catch {
+      setMediaPickError('Banner görseli doğrulanamadı.');
+    }
+  };
+
+  const onPickGalleryForForm = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+
+    if (!files.length) {
+      return;
+    }
+
+    const accepted = [];
+    const warnings = [];
+    const rejects = [];
+
+    for (const file of files) {
+      try {
+        const result = await validatePickedMediaFile(file, EVENT_GALLERY_IMAGE, 'Galeri görseli geçersiz.');
+        if (!result.ok) {
+          rejects.push(`${file.name}: ${result.error}`);
+          continue;
+        }
+
+        accepted.push(file);
+        if (result.warning) {
+          warnings.push(`${file.name}: ${result.warning}`);
+        }
+      } catch {
+        rejects.push(`${file.name}: Görsel doğrulanamadı.`);
+      }
+    }
+
+    if (!accepted.length) {
+      setMediaPickError(rejects.join(' '));
+      setMediaWarnings([]);
+      return;
+    }
+
+    setGalleryFiles(accepted);
+    setMediaPickError(rejects.join(' '));
+    setMediaWarnings(warnings);
   };
 
   const submitForm = async () => {
@@ -1361,11 +1463,7 @@ export default function EventsPage() {
                   type="file"
                   hidden
                   accept="image/*"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] || null;
-                    setCoverFile(file);
-                    event.target.value = '';
-                  }}
+                  onChange={onPickCoverForForm}
                 />
               </Button>
               {coverPreviewUrl && (
@@ -1436,11 +1534,7 @@ export default function EventsPage() {
                   hidden
                   multiple
                   accept="image/*"
-                  onChange={(event) => {
-                    const files = Array.from(event.target.files || []);
-                    setGalleryFiles(files);
-                    event.target.value = '';
-                  }}
+                  onChange={onPickGalleryForForm}
                 />
               </Button>
               {galleryFiles.length > 0 && (
@@ -1516,13 +1610,15 @@ export default function EventsPage() {
                   type="file"
                   hidden
                   accept="image/*"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] || null;
-                    setBannerFile(file);
-                    event.target.value = '';
-                  }}
+                  onChange={onPickBannerForForm}
                 />
               </Button>
+              {mediaPickError ? <Alert severity="error">{mediaPickError}</Alert> : null}
+              {mediaWarnings.map((warning) => (
+                <Alert key={warning} severity="warning">
+                  {warning}
+                </Alert>
+              ))}
               {bannerPreviewUrl && (
                 <Stack sx={{ gap: 0.5, alignItems: 'flex-start' }}>
                   <Box

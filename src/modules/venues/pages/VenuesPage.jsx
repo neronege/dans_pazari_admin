@@ -30,6 +30,7 @@ import {
   updateVenue,
   updateVenueActive
 } from 'modules/venues/api/venues.service';
+import { validateVenueImageFile, VENUE_IMAGE } from 'modules/venues/utils/venueImageConstraints';
 import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 import {
   buildTranslationsPayload,
@@ -127,6 +128,7 @@ export default function VenuesPage() {
   const [mapError, setMapError] = useState('');
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
+  const [photoWarnings, setPhotoWarnings] = useState([]);
 
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -264,6 +266,7 @@ export default function VenuesPage() {
     setSelectedPhotos([]);
     setExistingPhotos([]);
     setActionError('');
+    setPhotoWarnings([]);
     setFormErrors({});
     if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -295,6 +298,7 @@ export default function VenuesPage() {
       setLocaleTab('tr');
       setSelectedPhotos([]);
       setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
+      setPhotoWarnings([]);
       setFormErrors({});
       if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -305,7 +309,7 @@ export default function VenuesPage() {
     }
   };
 
-  const validateAndSetPhotos = (files) => {
+  const validateAndSetPhotos = async (files) => {
     const nextFiles = Array.from(files || []).slice(0, MAX_FILE_COUNT);
     const totalCount = nextFiles.length + existingPhotos.length;
     const totalBytes = nextFiles.reduce((sum, file) => sum + Number(file?.size || 0), 0);
@@ -332,12 +336,41 @@ export default function VenuesPage() {
       }
     }
 
-    setActionError('');
-    setSelectedPhotos(nextFiles);
+    const accepted = [];
+    const warnings = [];
+    const rejects = [];
+
+    for (const file of nextFiles) {
+      try {
+        const result = await validateVenueImageFile(file);
+        if (!result.ok) {
+          rejects.push(`${file.name}: ${result.error}`);
+          continue;
+        }
+
+        accepted.push(file);
+        if (result.warning) {
+          warnings.push(`${file.name}: ${result.warning}`);
+        }
+      } catch {
+        rejects.push(`${file.name}: Gorsel dogrulanamadi.`);
+      }
+    }
+
+    if (!accepted.length) {
+      setActionError(rejects.join(' '));
+      setPhotoWarnings([]);
+      return;
+    }
+
+    setActionError(rejects.join(' '));
+    setPhotoWarnings(warnings);
+    setSelectedPhotos(accepted);
   };
 
   const removeSelectedPhoto = (index) => {
     setSelectedPhotos((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+    setPhotoWarnings([]);
   };
 
   const removeExistingPhoto = async (photoId) => {
@@ -683,15 +716,27 @@ export default function VenuesPage() {
             </Stack>
             <Stack sx={{ gap: 1 }}>
               <Typography variant="subtitle2">Fotoğraflar</Typography>
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Minimum mock olcu <strong>{VENUE_IMAGE.targetWidth}x{VENUE_IMAGE.targetHeight}px</strong> ve oran ~
+                <strong>3:2</strong>. Daha yuksek cozunurlukte, oran uyumlu gorseller kabul edilir.
+              </Alert>
               <Button variant="outlined" component="label">
                 Fotoğraf Seç
                 <input
                   type="file"
                   hidden
                   accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={(event) => validateAndSetPhotos(event.target.files)}
+                  onChange={(event) => {
+                    void validateAndSetPhotos(event.target.files);
+                    event.target.value = '';
+                  }}
                 />
               </Button>
+              {photoWarnings.map((warning) => (
+                <Alert key={warning} severity="warning">
+                  {warning}
+                </Alert>
+              ))}
 
               {selectedPhotos.length > 0 && (
                 <Stack sx={{ gap: 1 }}>
