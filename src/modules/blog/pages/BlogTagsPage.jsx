@@ -230,10 +230,18 @@ export default function BlogTagsPage() {
                     <TextField
                       label="Slug"
                       value={row.slug}
-                      onChange={(event) =>
-                        setTranslations((prev) => updateLocaleField(prev, locale, 'slug', event.target.value))
+                      onChange={
+                        locale === 'tr'
+                          ? (event) =>
+                              setTranslations((prev) => updateLocaleField(prev, locale, 'slug', event.target.value))
+                          : undefined
                       }
-                      {...lengthFieldProps(row.slug, FIELD_LIMITS.blogTag.slug)}
+                      slotProps={locale === 'tr' ? undefined : { input: { readOnly: true } }}
+                      {...lengthFieldProps(
+                        row.slug,
+                        FIELD_LIMITS.blogTag.slug,
+                        locale === 'tr' ? '' : 'TR slug ile otomatik doldurulur.'
+                      )}
                     />
                   </Stack>
                 );

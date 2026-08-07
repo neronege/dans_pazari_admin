@@ -57,6 +57,21 @@ export function hydrateTranslations(apiTranslations, emptyFields, rootFallback =
     }
   }
 
+  // TR slug doluysa boş kalan EN/RU slug'larını doldur (eski kayıtlarda da görünür olsun).
+  if (Object.prototype.hasOwnProperty.call(emptyFields, 'slug')) {
+    const trSlug = String(map.tr?.slug ?? '').trim();
+    if (trSlug) {
+      for (const { code } of CONTENT_LOCALES) {
+        if (code === 'tr') {
+          continue;
+        }
+        if (!String(map[code]?.slug ?? '').trim()) {
+          map[code] = { ...map[code], slug: map.tr.slug };
+        }
+      }
+    }
+  }
+
   return map;
 }
 
@@ -120,20 +135,60 @@ export function trAsRoot(translations, fieldMap) {
   return root;
 }
 
+/**
+ * TR slug'ını diğer dillere kopyalar (yalnızca `slug` alanı olan çeviri satırları).
+ */
+function syncSlugFromTr(translations, slug) {
+  const next = { ...translations };
+  for (const { code } of CONTENT_LOCALES) {
+    if (code === 'tr') {
+      continue;
+    }
+    const row = next[code];
+    if (!row || !Object.prototype.hasOwnProperty.call(row, 'slug')) {
+      continue;
+    }
+    next[code] = { ...row, slug };
+  }
+  return next;
+}
+
+/**
+ * Locale alanı günceller.
+ * - `autoSlugFrom`: TR'de her zaman slug üretir; EN/RU'da yalnızca slug boşsa.
+ * - TR slug değişince (başlıktan veya elle) EN/RU slug'larına kopyalanır.
+ */
 export function updateLocaleField(translations, locale, field, value, { autoSlugFrom } = {}) {
   const nextLocale = {
     ...(translations[locale] || {}),
     [field]: value
   };
 
-  if (autoSlugFrom && field === autoSlugFrom) {
-    nextLocale.slug = toContentSlug(value);
+  const hasSlugField = Object.prototype.hasOwnProperty.call(nextLocale, 'slug');
+
+  if (autoSlugFrom && field === autoSlugFrom && hasSlugField) {
+    const generated = toContentSlug(value);
+    const currentSlug = String(nextLocale.slug || '').trim();
+    // TR: başlıkla her zaman senkron; diğer diller: TR'den gelen slug'ı bozma.
+    if (locale === 'tr' || !currentSlug) {
+      nextLocale.slug = generated;
+    }
   }
 
-  return {
+  let next = {
     ...translations,
     [locale]: nextLocale
   };
+
+  if (locale === 'tr' && hasSlugField) {
+    const slugChanged =
+      field === 'slug' || (autoSlugFrom && field === autoSlugFrom);
+    if (slugChanged) {
+      next = syncSlugFromTr(next, nextLocale.slug ?? '');
+    }
+  }
+
+  return next;
 }
 
 /** API translations[] içinden locale satırını bulur. */

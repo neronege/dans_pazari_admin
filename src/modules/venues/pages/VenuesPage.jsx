@@ -616,7 +616,11 @@ export default function VenuesPage() {
                       label="Slug"
                       value={row.slug}
                       slotProps={{ input: { readOnly: true } }}
-                      {...lengthFieldProps(row.slug, FIELD_LIMITS.venue.slug)}
+                      {...lengthFieldProps(
+                        row.slug,
+                        FIELD_LIMITS.venue.slug,
+                        locale === 'tr' ? '' : 'TR slug ile otomatik doldurulur.'
+                      )}
                     />
                     <TextField
                       label="Açıklama"

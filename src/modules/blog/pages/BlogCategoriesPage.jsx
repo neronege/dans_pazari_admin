@@ -251,10 +251,18 @@ export default function BlogCategoriesPage() {
                     <TextField
                       label="Slug"
                       value={row.slug}
-                      onChange={(event) =>
-                        setTranslations((prev) => updateLocaleField(prev, locale, 'slug', event.target.value))
+                      onChange={
+                        locale === 'tr'
+                          ? (event) =>
+                              setTranslations((prev) => updateLocaleField(prev, locale, 'slug', event.target.value))
+                          : undefined
                       }
-                      {...lengthFieldProps(row.slug, FIELD_LIMITS.blogCategory.slug)}
+                      slotProps={locale === 'tr' ? undefined : { input: { readOnly: true } }}
+                      {...lengthFieldProps(
+                        row.slug,
+                        FIELD_LIMITS.blogCategory.slug,
+                        locale === 'tr' ? '' : 'TR slug ile otomatik doldurulur.'
+                      )}
                     />
                     <TextField
                       label="Açıklama"

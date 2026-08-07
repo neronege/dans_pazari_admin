@@ -1156,13 +1156,21 @@ export default function EventsPage() {
                     <TextField
                       label="Slug"
                       value={row.slug}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'slug', event.target.value)
-                        }))
+                      onChange={
+                        locale === 'tr'
+                          ? (event) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                translations: updateLocaleField(prev.translations, locale, 'slug', event.target.value)
+                              }))
+                          : undefined
                       }
-                      {...lengthFieldProps(row.slug, FIELD_LIMITS.event.slug)}
+                      slotProps={locale === 'tr' ? undefined : { input: { readOnly: true } }}
+                      {...lengthFieldProps(
+                        row.slug,
+                        FIELD_LIMITS.event.slug,
+                        locale === 'tr' ? '' : 'TR slug ile otomatik doldurulur.'
+                      )}
                     />
                     <TextField
                       label="Açıklama"
