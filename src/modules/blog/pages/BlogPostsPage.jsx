@@ -615,14 +615,26 @@ export default function BlogPostsPage() {
                       value={row.slug}
                       onChange={
                         locale === 'tr'
-                          ? (event) =>
+                          ? (event) => {
+                              const value = event.target.value;
                               setForm((prev) => ({
                                 ...prev,
-                                translations: updateLocaleField(prev.translations, locale, 'slug', event.target.value)
-                              }))
+                                translations: updateLocaleField(prev.translations, locale, 'slug', value)
+                              }));
+                              setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.slug`));
+                            }
                           : undefined
                       }
                       slotProps={locale === 'tr' ? undefined : { input: { readOnly: true } }}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.slug`))}
+                      helperText={withFieldError(
+                        getFieldError(formErrors, `translations.${locale}.slug`),
+                        lengthFieldProps(
+                          row.slug,
+                          FIELD_LIMITS.blogPost.slug,
+                          locale === 'tr' ? '' : 'TR slug ile otomatik doldurulur.'
+                        ).helperText
+                      )}
                       {...lengthFieldProps(
                         row.slug,
                         FIELD_LIMITS.blogPost.slug,
@@ -632,30 +644,44 @@ export default function BlogPostsPage() {
                     <TextField
                       label="Meta Başlık"
                       value={row.metaTitle}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.target.value;
                         setForm((prev) => ({
                           ...prev,
-                          translations: updateLocaleField(prev.translations, locale, 'metaTitle', event.target.value)
-                        }))
-                      }
+                          translations: updateLocaleField(prev.translations, locale, 'metaTitle', value)
+                        }));
+                        setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.metaTitle`));
+                      }}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.metaTitle`))}
+                      helperText={withFieldError(
+                        getFieldError(formErrors, `translations.${locale}.metaTitle`),
+                        lengthFieldProps(row.metaTitle, FIELD_LIMITS.blogPost.metaTitle).helperText
+                      )}
                       {...lengthFieldProps(row.metaTitle, FIELD_LIMITS.blogPost.metaTitle)}
                     />
                     <TextField
                       label="Meta Açıklama"
                       value={row.metaDescription}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.target.value;
                         setForm((prev) => ({
                           ...prev,
                           translations: updateLocaleField(
                             prev.translations,
                             locale,
                             'metaDescription',
-                            event.target.value
+                            value
                           )
-                        }))
-                      }
+                        }));
+                        setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.metaDescription`));
+                      }}
                       multiline
                       minRows={2}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.metaDescription`))}
+                      helperText={withFieldError(
+                        getFieldError(formErrors, `translations.${locale}.metaDescription`),
+                        lengthFieldProps(row.metaDescription, FIELD_LIMITS.blogPost.metaDescription).helperText
+                      )}
                       {...lengthFieldProps(row.metaDescription, FIELD_LIMITS.blogPost.metaDescription)}
                     />
                   </Stack>
@@ -667,12 +693,18 @@ export default function BlogPostsPage() {
               select
               label={`Kategori (${localeTab.toUpperCase()})`}
               value={form.categoryId}
-              onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-              helperText={
+              onChange={(event) => {
+                const value = event.target.value;
+                setForm((prev) => ({ ...prev, categoryId: value }));
+                setFormErrors((prev) => clearFieldError(prev, 'categoryId'));
+              }}
+              error={Boolean(getFieldError(formErrors, 'categoryId'))}
+              helperText={withFieldError(
+                getFieldError(formErrors, 'categoryId'),
                 categories.length === 0
                   ? 'Liste boş. Önce Blog → Blog Kategorileri menüsünden kategori ekleyin.'
                   : 'Ad, üstteki dil sekmesine göre gösterilir. Çeviri yoksa TR adı (TR) ile işaretlenir.'
-              }
+              )}
             >
               <MenuItem value="">Seçiniz</MenuItem>
               {categories.map((category) => (
@@ -685,13 +717,19 @@ export default function BlogPostsPage() {
               select
               label={`Etiketler (${localeTab.toUpperCase()})`}
               value={form.tagIds}
-              onChange={(event) => setForm((prev) => ({ ...prev, tagIds: event.target.value }))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setForm((prev) => ({ ...prev, tagIds: value }));
+                setFormErrors((prev) => clearFieldError(prev, 'tagIds'));
+              }}
               SelectProps={{ multiple: true }}
-              helperText={
+              error={Boolean(getFieldError(formErrors, 'tagIds'))}
+              helperText={withFieldError(
+                getFieldError(formErrors, 'tagIds'),
                 tags.length === 0
                   ? 'Liste boş. Önce Blog → Blog Etiketleri menüsünden etiket ekleyin.'
-                  : undefined
-              }
+                  : ''
+              )}
             >
               {tags.map((tag) => (
                 <MenuItem key={tag.id} value={tag.id}>

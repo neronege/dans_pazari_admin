@@ -47,6 +47,11 @@ import {
   updateEvent
 } from 'modules/events/api/events.service';
 import useEvents from 'modules/events/hooks/useEvents';
+import {
+  EVENT_COVER_IMAGE,
+  EVENT_GALLERY_IMAGE,
+  validateEventImageFile
+} from 'modules/events/utils/eventImageConstraints';
 import useSWR from 'swr';
 import ArrowUpOutlined from '@ant-design/icons/ArrowUpOutlined';
 import ArrowDownOutlined from '@ant-design/icons/ArrowDownOutlined';
@@ -207,6 +212,8 @@ export default function EventsPage() {
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [existingCoverUrl, setExistingCoverUrl] = useState('');
   const [existingBannerUrl, setExistingBannerUrl] = useState('');
+  const [mediaPickError, setMediaPickError] = useState('');
+  const [mediaWarnings, setMediaWarnings] = useState([]);
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   const [sessionEditingId, setSessionEditingId] = useState(null);
@@ -612,6 +619,14 @@ export default function EventsPage() {
 
     try {
       setActionError('');
+      const result = await validateEventImageFile(file, EVENT_COVER_IMAGE);
+      if (!result.ok) {
+        setActionError(result.error || 'Kapak görseli geçersiz.');
+        return;
+      }
+      if (result.warning) {
+        setActionError(result.warning);
+      }
       await uploadEventCover(coverTargetEventId, file);
       await refresh();
 
@@ -653,6 +668,14 @@ export default function EventsPage() {
 
     try {
       setActionError('');
+      const result = await validateEventImageFile(file, EVENT_COVER_IMAGE);
+      if (!result.ok) {
+        setActionError(result.error || 'Banner görseli geçersiz.');
+        return;
+      }
+      if (result.warning) {
+        setActionError(result.warning);
+      }
       await uploadEventBanner(bannerTargetEventId, file);
       await refresh();
 

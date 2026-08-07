@@ -253,11 +253,23 @@ export default function BlogCategoriesPage() {
                       value={row.slug}
                       onChange={
                         locale === 'tr'
-                          ? (event) =>
-                              setTranslations((prev) => updateLocaleField(prev, locale, 'slug', event.target.value))
+                          ? (event) => {
+                              const value = event.target.value;
+                              setTranslations((prev) => updateLocaleField(prev, locale, 'slug', value));
+                              setFormErrors((prev) => clearFieldError(prev, `translations.${locale}.slug`));
+                            }
                           : undefined
                       }
                       slotProps={locale === 'tr' ? undefined : { input: { readOnly: true } }}
+                      error={Boolean(getFieldError(formErrors, `translations.${locale}.slug`))}
+                      helperText={withFieldError(
+                        getFieldError(formErrors, `translations.${locale}.slug`),
+                        lengthFieldProps(
+                          row.slug,
+                          FIELD_LIMITS.blogCategory.slug,
+                          locale === 'tr' ? '' : 'TR slug ile otomatik doldurulur.'
+                        ).helperText
+                      )}
                       {...lengthFieldProps(
                         row.slug,
                         FIELD_LIMITS.blogCategory.slug,
