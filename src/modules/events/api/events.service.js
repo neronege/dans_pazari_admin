@@ -88,6 +88,22 @@ export async function deleteEventPhoto(eventId, photoId) {
   await httpClient.delete(endpoints.admin.events.photoDetail(eventId, photoId));
 }
 
+export async function uploadEventSponsors(eventId, files = []) {
+  const formData = new FormData();
+  (files || []).forEach((file) => {
+    if (file) {
+      formData.append('Sponsors', file);
+    }
+  });
+
+  const response = await httpClient.post(endpoints.admin.events.sponsors(eventId), formData);
+  return response.data;
+}
+
+export async function deleteEventSponsor(eventId, sponsorId) {
+  await httpClient.delete(endpoints.admin.events.sponsorDetail(eventId, sponsorId));
+}
+
 export async function uploadEventBanner(eventId, file) {
   const formData = new FormData();
   formData.append('file', file);

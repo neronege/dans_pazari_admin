@@ -1,6 +1,7 @@
 /**
  * Event detail mock thumb: 900×530.
  * Gallery secondary slots on detail: 600×400 (3:2).
+ * Sponsor logos (Brand mock wordmarks): exact 200×50.
  */
 
 export const EVENT_COVER_IMAGE = {
@@ -11,7 +12,8 @@ export const EVENT_COVER_IMAGE = {
   aspectRatio: 900 / 530,
   /** ±5% */
   aspectMin: (900 / 530) * 0.95,
-  aspectMax: (900 / 530) * 1.05
+  aspectMax: (900 / 530) * 1.05,
+  requireExactPixels: false
 };
 
 export const EVENT_GALLERY_IMAGE = {
@@ -21,7 +23,19 @@ export const EVENT_GALLERY_IMAGE = {
   /** 3:2 */
   aspectRatio: 1.5,
   aspectMin: 1.5 * 0.95,
-  aspectMax: 1.5 * 1.05
+  aspectMax: 1.5 * 1.05,
+  requireExactPixels: false
+};
+
+/** Mock brand logo canvas — birebir 200×50 zorunlu. */
+export const EVENT_SPONSOR_IMAGE = {
+  label: 'Sponsor',
+  targetWidth: 200,
+  targetHeight: 50,
+  aspectRatio: 200 / 50,
+  aspectMin: 200 / 50,
+  aspectMax: 200 / 50,
+  requireExactPixels: true
 };
 
 export function readImageDimensions(file) {
@@ -59,6 +73,25 @@ export function validateEventImageDimensions(width, height, spec) {
       width: 0,
       height: 0,
       ratio: 0
+    };
+  }
+
+  if (spec.requireExactPixels) {
+    if (width !== spec.targetWidth || height !== spec.targetHeight) {
+      return {
+        ok: false,
+        error: `Sponsor logosu tam ${spec.targetWidth}×${spec.targetHeight}px olmalıdır (seçilen: ${width}×${height}px). Mock brand ölçüleriyle birebir olmalı.`,
+        width,
+        height,
+        ratio
+      };
+    }
+
+    return {
+      ok: true,
+      width,
+      height,
+      ratio
     };
   }
 

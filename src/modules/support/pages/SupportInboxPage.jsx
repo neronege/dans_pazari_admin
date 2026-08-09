@@ -43,6 +43,16 @@ function formatDate(value) {
   }
 }
 
+function buildReplyMessage(replyText) {
+  return `Merhaba,
+
+${replyText.trim()}
+
+Saygılarımızla,
+
+MuseTicket Ekibi`;
+}
+
 export default function SupportInboxPage() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -77,10 +87,12 @@ export default function SupportInboxPage() {
       return;
     }
 
+    const messageBody = buildReplyMessage(replyBody);
+
     try {
       setSending(true);
       setActionError('');
-      await replyInboundEmail(detail.id, replyBody.trim());
+      await replyInboundEmail(detail.id, messageBody);
       setActionInfo('Yanıt gönderildi (support@museticket.com).');
       setReplyBody('');
       const updated = await getInboundEmailDetail(detail.id);
@@ -193,7 +205,8 @@ export default function SupportInboxPage() {
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
               fullWidth
-              placeholder="support@museticket.com adresinden gönderilir"
+              placeholder="Kullanıcının göreceği yanıtı buraya yazın"
+              helperText="Gönderimde otomatik olarak Merhaba, Saygılarımızla ve MuseTicket Ekibi şablonu eklenir."
             />
           </Stack>
         </DialogContent>

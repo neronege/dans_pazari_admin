@@ -31,6 +31,7 @@ import {
   deleteEventBanner,
   deleteEventCover,
   deleteEventPhoto,
+  deleteEventSponsor,
   deleteEventSession,
   deleteEvent,
   deleteTicketType,
@@ -42,6 +43,7 @@ import {
   uploadEventCover,
   uploadEventBanner,
   uploadEventPhotos,
+  uploadEventSponsors,
   setEventSortOrder,
   unpublishEvent,
   updateEvent
@@ -50,6 +52,7 @@ import useEvents from 'modules/events/hooks/useEvents';
 import {
   EVENT_COVER_IMAGE,
   EVENT_GALLERY_IMAGE,
+  EVENT_SPONSOR_IMAGE,
   validateEventImageFile
 } from 'modules/events/utils/eventImageConstraints';
 import useSWR from 'swr';
@@ -210,6 +213,8 @@ export default function EventsPage() {
   const [bannerFile, setBannerFile] = useState(null);
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
+  const [sponsorFiles, setSponsorFiles] = useState([]);
+  const [existingSponsors, setExistingSponsors] = useState([]);
   const [existingCoverUrl, setExistingCoverUrl] = useState('');
   const [existingBannerUrl, setExistingBannerUrl] = useState('');
   const [mediaPickError, setMediaPickError] = useState('');
@@ -241,6 +246,10 @@ export default function EventsPage() {
     () => galleryFiles.map((file) => ({ name: file.name, previewUrl: URL.createObjectURL(file) })),
     [galleryFiles]
   );
+  const sponsorPreviewItems = useMemo(
+    () => sponsorFiles.map((file) => ({ name: file.name, previewUrl: URL.createObjectURL(file) })),
+    [sponsorFiles]
+  );
 
   useEffect(() => {
     return () => {
@@ -265,6 +274,14 @@ export default function EventsPage() {
       });
     };
   }, [galleryPreviewItems]);
+
+  useEffect(() => {
+    return () => {
+      sponsorPreviewItems.forEach((item) => {
+        URL.revokeObjectURL(item.previewUrl);
+      });
+    };
+  }, [sponsorPreviewItems]);
 
   const openImagePreview = (url, title) => {
     if (!url) {
@@ -293,6 +310,8 @@ export default function EventsPage() {
     setBannerFile(null);
     setGalleryFiles([]);
     setExistingPhotos([]);
+    setSponsorFiles([]);
+    setExistingSponsors([]);
     setExistingCoverUrl('');
     setExistingBannerUrl('');
     setActionError('');
@@ -343,11 +362,13 @@ export default function EventsPage() {
       });
       setLocaleTab('tr');
       setExistingPhotos(galleryOnly);
+      setExistingSponsors(Array.isArray(detail?.sponsors) ? detail.sponsors : []);
       setExistingCoverUrl(coverUrl);
       setExistingBannerUrl(detail?.bannerImageUrl || '');
       setCoverFile(null);
       setBannerFile(null);
       setGalleryFiles([]);
+      setSponsorFiles([]);
       setMediaPickError('');
       setMediaWarnings([]);
       setFormErrors({});
@@ -364,6 +385,10 @@ export default function EventsPage() {
 
     if (galleryFiles.length > 0) {
       await uploadEventPhotos(eventId, galleryFiles);
+    }
+
+    if (sponsorFiles.length > 0) {
+      await uploadEventSponsors(eventId, sponsorFiles);
     }
 
     if (bannerFile) {
@@ -467,6 +492,46 @@ export default function EventsPage() {
     setGalleryFiles(accepted);
     setMediaPickError(rejects.join(' '));
     setMediaWarnings(warnings);
+  };
+
+  const onPickSponsorsForForm = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+
+    if (!files.length) {
+      return;
+    }
+
+    const accepted = [];
+    const rejects = [];
+
+    for (const file of files) {
+      try {
+        const result = await validatePickedMediaFile(
+          file,
+          EVENT_SPONSOR_IMAGE,
+          'Sponsor görseli geçersiz.'
+        );
+        if (!result.ok) {
+          rejects.push(`${file.name}: ${result.error}`);
+          continue;
+        }
+
+        accepted.push(file);
+      } catch {
+        rejects.push(`${file.name}: Görsel doğrulanamadı.`);
+      }
+    }
+
+    if (!accepted.length) {
+      setMediaPickError(rejects.join(' '));
+      setMediaWarnings([]);
+      return;
+    }
+
+    setSponsorFiles(accepted);
+    setMediaPickError(rejects.join(' '));
+    setMediaWarnings([]);
   };
 
   const submitForm = async () => {
@@ -578,7 +643,9 @@ export default function EventsPage() {
       setCoverFile(null);
       setBannerFile(null);
       setGalleryFiles([]);
+      setSponsorFiles([]);
       setExistingPhotos([]);
+      setExistingSponsors([]);
       setExistingCoverUrl('');
       setExistingBannerUrl('');
       await refresh();
@@ -826,6 +893,21 @@ export default function EventsPage() {
       setActionError('');
       await deleteEventPhoto(editingId, photoId);
       setExistingPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+      await refresh();
+    } catch (requestError) {
+      setActionError(getRequestErrorMessage(requestError));
+    }
+  };
+
+  const onDeleteSponsor = async (sponsorId) => {
+    if (!editingId) {
+      return;
+    }
+
+    try {
+      setActionError('');
+      await deleteEventSponsor(editingId, sponsorId);
+      setExistingSponsors((prev) => prev.filter((sponsor) => sponsor.id !== sponsorId));
       await refresh();
     } catch (requestError) {
       setActionError(getRequestErrorMessage(requestError));
@@ -1594,6 +1676,88 @@ export default function EventsPage() {
                           </Typography>
                         </Stack>
                         <Button size="small" color="error" onClick={() => onDeletePhoto(photo.id)}>
+                          Sil
+                        </Button>
+                      </Stack>
+                    );
+                  })}
+                </Stack>
+              )}
+            </Stack>
+            <Stack sx={{ gap: 1 }}>
+              <Typography variant="subtitle2">Sponsorlar (opsiyonel)</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Logo tam {EVENT_SPONSOR_IMAGE.targetWidth}×{EVENT_SPONSOR_IMAGE.targetHeight}px olmalıdır (mock Brand ölçüleri).
+              </Typography>
+              <Button variant="outlined" component="label">
+                Sponsor Logosu Seç
+                <input
+                  type="file"
+                  hidden
+                  multiple
+                  accept="image/*"
+                  onChange={onPickSponsorsForForm}
+                />
+              </Button>
+              {sponsorFiles.length > 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {sponsorFiles.length} dosya seçildi.
+                </Typography>
+              )}
+              {sponsorPreviewItems.length > 0 && (
+                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                  {sponsorPreviewItems.map((item) => (
+                    <Box
+                      key={item.previewUrl}
+                      component="img"
+                      src={item.previewUrl}
+                      alt={item.name}
+                      title={item.name}
+                      onClick={() => openImagePreview(item.previewUrl, item.name)}
+                      sx={{
+                        width: 120,
+                        height: 40,
+                        objectFit: 'contain',
+                        borderRadius: 1,
+                        border: (theme) => `1px solid ${theme.palette.divider}`,
+                        cursor: 'zoom-in',
+                        bgcolor: 'grey.50'
+                      }}
+                    />
+                  ))}
+                </Stack>
+              )}
+              {editingId && existingSponsors.length > 0 && (
+                <Stack sx={{ gap: 1 }}>
+                  <Typography variant="body2">Mevcut Sponsorlar</Typography>
+                  {existingSponsors.map((sponsor) => {
+                    const sponsorUrl = resolvePhotoUrl(sponsor);
+
+                    return (
+                      <Stack key={sponsor.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                          {sponsorUrl ? (
+                            <Box
+                              component="img"
+                              src={sponsorUrl}
+                              alt={sponsor.imageKey || `Sponsor ${sponsor.id}`}
+                              onClick={() => openImagePreview(sponsorUrl, sponsor.imageKey || `Sponsor ${sponsor.id}`)}
+                              sx={{
+                                width: 100,
+                                height: 36,
+                                objectFit: 'contain',
+                                borderRadius: 1,
+                                border: (theme) => `1px solid ${theme.palette.divider}`,
+                                cursor: 'zoom-in',
+                                bgcolor: 'grey.50'
+                              }}
+                            />
+                          ) : null}
+                          <Typography variant="body2">
+                            #{sponsor.sortOrder ?? '-'} - {sponsor.imageKey || sponsor.id}
+                          </Typography>
+                        </Stack>
+                        <Button size="small" color="error" onClick={() => onDeleteSponsor(sponsor.id)}>
                           Sil
                         </Button>
                       </Stack>
