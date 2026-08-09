@@ -161,15 +161,23 @@ export default function TicketsMonitorPage() {
           <Chip label={`Diğer: ${stats.other}`} />
         </Stack>
 
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table size="small" sx={{ minWidth: 780 }}>
+        <TableContainer sx={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <Table
+            size="small"
+            sx={{
+              minWidth: 1080,
+              '& .MuiTableCell-root': {
+                whiteSpace: 'nowrap'
+              }
+            }}
+          >
             <TableHead>
               <TableRow>
                 <TableCell>Zaman</TableCell>
                 <TableCell>Sonuç</TableCell>
                 <TableCell>Bilet</TableCell>
-                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Ad Soyad</TableCell>
-                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Kapı Görevlisi</TableCell>
+                <TableCell>Ad Soyad</TableCell>
+                <TableCell>Kapı Görevlisi</TableCell>
                 <TableCell>Mesaj</TableCell>
               </TableRow>
             </TableHead>
@@ -200,14 +208,10 @@ export default function TicketsMonitorPage() {
                     <TableCell>
                       <Chip label={meta.label} color={meta.color} size="small" />
                     </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.ticketNumber || '-'}</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
-                      {item.holderName || '-'}
-                    </TableCell>
-                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>
-                      {item.scannedByName || '-'}
-                    </TableCell>
-                    <TableCell sx={{ minWidth: 220 }}>
+                    <TableCell>{item.ticketNumber || '-'}</TableCell>
+                    <TableCell>{item.holderName || '-'}</TableCell>
+                    <TableCell>{item.scannedByName || '-'}</TableCell>
+                    <TableCell sx={{ minWidth: 320 }}>
                       <Typography variant="body2" noWrap>
                         {item.resultMessage || '-'}
                       </Typography>

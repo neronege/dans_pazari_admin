@@ -19,7 +19,7 @@ import Typography from '@mui/material/Typography';
 import MainCard from 'components/MainCard';
 import { getGateEventDetail, scanTicket } from 'modules/tickets/api/tickets.service';
 import useGateEvents from 'modules/tickets/hooks/useGateEvents';
-import { clearGateContext, loadGateContext, saveGateContext } from 'modules/tickets/utils/gateContext';
+import { loadGateContext, saveGateContext } from 'modules/tickets/utils/gateContext';
 import { getScanResultMeta, playScanFeedback } from 'modules/tickets/utils/scanResultMeta';
 import { getHumanReadableError } from 'shared/api';
 
@@ -200,12 +200,6 @@ export default function TicketsPage() {
     setScanError('');
   };
 
-  const unlockGate = async () => {
-    await stopCamera();
-    clearGateContext();
-    setContext(null);
-  };
-
   const resultMeta = getScanResultMeta(lastResult?.resultCode);
 
   if (!context) {
@@ -260,9 +254,6 @@ export default function TicketsPage() {
         <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 1, width: { xs: '100%', sm: 'auto' } }}>
           <Button component={Link} href="/tickets/monitor" size="small" fullWidth>
             Monitör
-          </Button>
-          <Button size="small" color="warning" onClick={unlockGate} fullWidth>
-            Bağlamı değiştir
           </Button>
         </Stack>
       }
@@ -350,14 +341,22 @@ export default function TicketsPage() {
           </Box>
         )}
 
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table size="small" sx={{ minWidth: 680 }}>
+        <TableContainer sx={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <Table
+            size="small"
+            sx={{
+              minWidth: 900,
+              '& .MuiTableCell-root': {
+                whiteSpace: 'nowrap'
+              }
+            }}
+          >
             <TableHead>
               <TableRow>
                 <TableCell>Zaman</TableCell>
                 <TableCell>Sonuç</TableCell>
                 <TableCell>Bilet No</TableCell>
-                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Ad Soyad</TableCell>
+                <TableCell>Ad Soyad</TableCell>
                 <TableCell>Mesaj</TableCell>
               </TableRow>
             </TableHead>
@@ -379,11 +378,9 @@ export default function TicketsPage() {
                     <TableCell>
                       <Chip label={meta.label} color={meta.color} size="small" />
                     </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.ticketNumber || '-'}</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
-                      {item.holderName || '-'}
-                    </TableCell>
-                    <TableCell sx={{ minWidth: 220 }}>
+                    <TableCell>{item.ticketNumber || '-'}</TableCell>
+                    <TableCell>{item.holderName || '-'}</TableCell>
+                    <TableCell sx={{ minWidth: 280 }}>
                       <Typography variant="body2" noWrap>
                         {item.resultMessage || '-'}
                       </Typography>
