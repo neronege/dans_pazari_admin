@@ -119,7 +119,8 @@ export const endpoints = {
       detail: (id) => `/admin/users/${id}`,
       suspend: (id) => `/admin/users/${id}/suspend`,
       ban: (id) => `/admin/users/${id}/ban`,
-      activate: (id) => `/admin/users/${id}/activate`
+      activate: (id) => `/admin/users/${id}/activate`,
+      delete: (id) => `/admin/users/${id}`
     }
   }
 };

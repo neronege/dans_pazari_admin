@@ -257,11 +257,11 @@ export default function TicketsPage() {
     <MainCard
       title="Kapı Tarama"
       secondary={
-        <Stack direction="row" sx={{ gap: 1 }}>
-          <Button component={Link} href="/tickets/monitor" size="small">
+        <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+          <Button component={Link} href="/tickets/monitor" size="small" fullWidth>
             Monitör
           </Button>
-          <Button size="small" color="warning" onClick={unlockGate}>
+          <Button size="small" color="warning" onClick={unlockGate} fullWidth>
             Bağlamı değiştir
           </Button>
         </Stack>
@@ -320,6 +320,8 @@ export default function TicketsPage() {
             variant="contained"
             onClick={() => submitScan(payload)}
             disabled={isScanning || !payload.trim()}
+            fullWidth
+            sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 120 } }}
           >
             {isScanning ? 'Taranıyor...' : 'Tara'}
           </Button>
@@ -348,14 +350,14 @@ export default function TicketsPage() {
           </Box>
         )}
 
-        <TableContainer>
-          <Table size="small">
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 680 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Zaman</TableCell>
                 <TableCell>Sonuç</TableCell>
                 <TableCell>Bilet No</TableCell>
-                <TableCell>Ad Soyad</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Ad Soyad</TableCell>
                 <TableCell>Mesaj</TableCell>
               </TableRow>
             </TableHead>
@@ -377,9 +379,15 @@ export default function TicketsPage() {
                     <TableCell>
                       <Chip label={meta.label} color={meta.color} size="small" />
                     </TableCell>
-                    <TableCell>{item.ticketNumber || '-'}</TableCell>
-                    <TableCell>{item.holderName || '-'}</TableCell>
-                    <TableCell>{item.resultMessage || '-'}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.ticketNumber || '-'}</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      {item.holderName || '-'}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 220 }}>
+                      <Typography variant="body2" noWrap>
+                        {item.resultMessage || '-'}
+                      </Typography>
+                    </TableCell>
                   </TableRow>
                 );
               })}

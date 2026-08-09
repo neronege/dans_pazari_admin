@@ -91,7 +91,7 @@ export default function TicketsMonitorPage() {
     <MainCard
       title="Kapı Monitörü"
       secondary={
-        <Button component={Link} href="/tickets" size="small">
+        <Button component={Link} href="/tickets" size="small" fullWidth sx={{ width: { xs: '100%', sm: 'auto' } }}>
           Tarayıcıya dön
         </Button>
       }
@@ -126,21 +126,22 @@ export default function TicketsMonitorPage() {
           <Chip label={`Diğer: ${stats.other}`} />
         </Stack>
 
-        <TableContainer>
-          <Table size="small">
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 780 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Zaman</TableCell>
                 <TableCell>Sonuç</TableCell>
                 <TableCell>Bilet</TableCell>
-                <TableCell>Ad Soyad</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Ad Soyad</TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Kapı Görevlisi</TableCell>
                 <TableCell>Mesaj</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {items.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     Henüz canlı tarama yok.
                   </TableCell>
                 </TableRow>
@@ -149,15 +150,33 @@ export default function TicketsMonitorPage() {
                 const meta = getScanResultMeta(item.resultCode);
                 return (
                   <TableRow key={`${item.scannedAtUtc || 'm'}-${item.ticketId || index}`} hover>
-                    <TableCell>
-                      {item.scannedAtUtc ? new Date(item.scannedAtUtc).toLocaleTimeString('tr-TR') : '-'}
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {item.scannedAtUtc
+                        ? new Date(item.scannedAtUtc).toLocaleString('tr-TR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })
+                        : '-'}
                     </TableCell>
                     <TableCell>
                       <Chip label={meta.label} color={meta.color} size="small" />
                     </TableCell>
-                    <TableCell>{item.ticketNumber || '-'}</TableCell>
-                    <TableCell>{item.holderName || '-'}</TableCell>
-                    <TableCell>{item.resultMessage || '-'}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.ticketNumber || '-'}</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      {item.holderName || '-'}
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      {item.scannedByName || '-'}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 220 }}>
+                      <Typography variant="body2" noWrap>
+                        {item.resultMessage || '-'}
+                      </Typography>
+                    </TableCell>
                   </TableRow>
                 );
               })}

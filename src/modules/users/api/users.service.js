@@ -43,3 +43,7 @@ export async function activateUser(userId) {
   const response = await httpClient.patch(endpoints.admin.users.activate(userId), {});
   return response.data;
 }
+
+export async function deleteUser(userId) {
+  await httpClient.delete(endpoints.admin.users.delete(userId));
+}

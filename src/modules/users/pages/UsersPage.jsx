@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -23,10 +23,12 @@ import {
   activateUser,
   banUser,
   createUser,
+  deleteUser,
   getUserDetail,
   suspendUser
 } from 'modules/users/api/users.service';
 import useUsers from 'modules/users/hooks/useUsers';
+import useEvents from 'modules/events/hooks/useEvents';
 import { getHumanReadableError } from 'shared/api';
 
 function field(value, fallback = '-') {
@@ -50,7 +52,8 @@ const EMPTY_CREATE = {
   lastName: '',
   phone: '',
   role: 'Customer',
-  gender: 3
+  gender: 3,
+  assignedEventId: ''
 };
 
 export default function UsersPage() {
@@ -75,6 +78,17 @@ export default function UsersPage() {
     isGuest,
     role
   });
+  const { events: eventOptions = [] } = useEvents({});
+
+  const eventTitleById = useMemo(() => {
+    const map = new Map();
+    (eventOptions || []).forEach((event) => {
+      if (event?.id) {
+        map.set(event.id, event.title || event.name || event.slug || event.id);
+      }
+    });
+    return map;
+  }, [eventOptions]);
 
   const pageCount = Math.max(1, Math.ceil(totalCount / 20));
 
@@ -129,9 +143,37 @@ export default function UsersPage() {
     }
   };
 
+  const onDelete = async (user) => {
+    const confirmed = window.confirm(
+      `${user.email || 'Bu kullanıcı'} soft-delete ile silinsin mi? Oturumları kapatılır ve listeden kalkar.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionError('');
+      setActionInfo('');
+      await deleteUser(user.id);
+      if (detail?.id === user.id) {
+        setDetailDialogOpen(false);
+        setDetail(null);
+      }
+      setActionInfo('Kullanıcı silindi.');
+      await refresh();
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    }
+  };
+
   const onCreate = async () => {
     if (!createForm.email.trim() || !createForm.password || !createForm.firstName.trim() || !createForm.lastName.trim()) {
       setActionError('Ad, soyad, e-posta ve şifre zorunludur.');
+      return;
+    }
+
+    if (createForm.role === 'DoorStaff' && !createForm.assignedEventId) {
+      setActionError('Kapı personeli için etkinlik seçilmelidir.');
       return;
     }
 
@@ -146,7 +188,8 @@ export default function UsersPage() {
         lastName: createForm.lastName.trim(),
         phone: createForm.phone.trim() || null,
         role: createForm.role,
-        gender: createForm.role === 'Customer' ? Number(createForm.gender) : undefined
+        gender: createForm.role === 'Customer' ? Number(createForm.gender) : undefined,
+        assignedEventId: createForm.role === 'DoorStaff' ? createForm.assignedEventId : null
       });
       setCreateDialogOpen(false);
       setCreateForm(EMPTY_CREATE);
@@ -237,6 +280,7 @@ export default function UsersPage() {
                   <TableCell>Ad Soyad</TableCell>
                   <TableCell>E-posta</TableCell>
                   <TableCell>Rol</TableCell>
+                  <TableCell>Etkinlik</TableCell>
                   <TableCell>Durum</TableCell>
                   <TableCell>Misafir</TableCell>
                   <TableCell>Oluşturulma</TableCell>
@@ -246,7 +290,7 @@ export default function UsersPage() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       Yükleniyor...
                     </TableCell>
                   </TableRow>
@@ -254,7 +298,7 @@ export default function UsersPage() {
 
                 {!isLoading && users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       Gösterilecek kullanıcı bulunamadı.
                     </TableCell>
                   </TableRow>
@@ -266,6 +310,11 @@ export default function UsersPage() {
                       <TableCell>{field(user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim())}</TableCell>
                       <TableCell>{field(user.email)}</TableCell>
                       <TableCell>{roleLabel(user.role)}</TableCell>
+                      <TableCell>
+                        {user.role === 'DoorStaff'
+                          ? field(eventTitleById.get(user.assignedEventId) || user.assignedEventId)
+                          : '-'}
+                      </TableCell>
                       <TableCell>{field(user.status)}</TableCell>
                       <TableCell>{user.isGuest ? 'Evet' : 'Hayır'}</TableCell>
                       <TableCell>{field(user.createdAtUtc || user.createdAt)}</TableCell>
@@ -281,6 +330,9 @@ export default function UsersPage() {
                         </Button>
                         <Button size="small" color="success" onClick={() => onActivate(user)}>
                           Aktifleştir
+                        </Button>
+                        <Button size="small" color="error" onClick={() => onDelete(user)}>
+                          Sil
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -304,12 +356,37 @@ export default function UsersPage() {
               select
               label="Rol"
               value={createForm.role}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, role: event.target.value }))}
+              onChange={(event) =>
+                setCreateForm((prev) => ({
+                  ...prev,
+                  role: event.target.value,
+                  assignedEventId: event.target.value === 'DoorStaff' ? prev.assignedEventId : ''
+                }))
+              }
               fullWidth
             >
               <MenuItem value="Customer">Müşteri (Customer)</MenuItem>
               <MenuItem value="DoorStaff">Kapı Personeli (DoorStaff)</MenuItem>
             </TextField>
+            {createForm.role === 'DoorStaff' ? (
+              <TextField
+                select
+                label="Atanan Etkinlik"
+                value={createForm.assignedEventId}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, assignedEventId: event.target.value }))}
+                helperText="Bu kapı personeli yalnızca seçilen etkinlikte bilet tarayabilir."
+                fullWidth
+                required
+              >
+                <MenuItem value="">Etkinlik seçin</MenuItem>
+                {(eventOptions || []).map((event) => (
+                  <MenuItem key={event.id} value={event.id}>
+                    {event.title || event.name || event.slug || event.id}
+                    {event.status ? ` (${event.status})` : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : null}
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
               <TextField
                 label="Ad"
@@ -381,6 +458,12 @@ export default function UsersPage() {
             <Typography>Ad Soyad: {field(detail?.fullName || `${detail?.firstName || ''} ${detail?.lastName || ''}`.trim())}</Typography>
             <Typography>E-posta: {field(detail?.email)}</Typography>
             <Typography>Rol: {roleLabel(detail?.role)}</Typography>
+            {detail?.role === 'DoorStaff' ? (
+              <Typography>
+                Atanan Etkinlik:{' '}
+                {field(eventTitleById.get(detail?.assignedEventId) || detail?.assignedEventId)}
+              </Typography>
+            ) : null}
             <Typography>Durum: {field(detail?.status)}</Typography>
             <Typography>Misafir: {detail?.isGuest ? 'Evet' : 'Hayır'}</Typography>
             <Typography>Oluşturulma: {field(detail?.createdAtUtc || detail?.createdAt)}</Typography>
@@ -399,6 +482,9 @@ export default function UsersPage() {
               </Button>
               <Button color="success" onClick={() => onActivate(detail)}>
                 Aktifleştir
+              </Button>
+              <Button color="error" onClick={() => onDelete(detail)}>
+                Sil
               </Button>
             </>
           )}
