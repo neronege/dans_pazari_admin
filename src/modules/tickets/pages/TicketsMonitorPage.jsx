@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
@@ -18,8 +18,11 @@ import Typography from '@mui/material/Typography';
 import MainCard from 'components/MainCard';
 import useGateEvents from 'modules/tickets/hooks/useGateEvents';
 import { createPlatformHubConnection, ensureHubStarted } from 'modules/tickets/api/platformHub';
+import { getGateMonitorStats } from 'modules/tickets/api/tickets.service';
 import { loadGateContext } from 'modules/tickets/utils/gateContext';
 import { getScanResultMeta } from 'modules/tickets/utils/scanResultMeta';
+
+const STATS_POLL_MS = 15000;
 
 export default function TicketsMonitorPage() {
   const gate = loadGateContext();
@@ -28,6 +31,35 @@ export default function TicketsMonitorPage() {
   const [connected, setConnected] = useState(false);
   const [hubError, setHubError] = useState('');
   const [items, setItems] = useState([]);
+  const [gateStats, setGateStats] = useState({ soldTicketCount: 0, checkedInCount: 0 });
+
+  const refreshGateStats = useCallback(async (id) => {
+    if (!id) {
+      setGateStats({ soldTicketCount: 0, checkedInCount: 0 });
+      return;
+    }
+
+    try {
+      const stats = await getGateMonitorStats(id);
+      setGateStats({
+        soldTicketCount: Number(stats?.soldTicketCount ?? 0),
+        checkedInCount: Number(stats?.checkedInCount ?? 0)
+      });
+    } catch {
+      // Canlı tarama akışını bozma; chip'ler son bilinen değeri tutar.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!eventId) {
+      setGateStats({ soldTicketCount: 0, checkedInCount: 0 });
+      return undefined;
+    }
+
+    refreshGateStats(eventId);
+    const timer = setInterval(() => refreshGateStats(eventId), STATS_POLL_MS);
+    return () => clearInterval(timer);
+  }, [eventId, refreshGateStats]);
 
   useEffect(() => {
     if (!eventId) {
@@ -43,6 +75,7 @@ export default function TicketsMonitorPage() {
         return;
       }
       setItems((prev) => [result, ...prev].slice(0, 50));
+      refreshGateStats(eventId);
     };
 
     (async () => {
@@ -73,7 +106,7 @@ export default function TicketsMonitorPage() {
         });
       setConnected(false);
     };
-  }, [eventId]);
+  }, [eventId, refreshGateStats]);
 
   const stats = useMemo(() => {
     const counts = { valid: 0, already_used: 0, wrong: 0, other: 0 };
@@ -120,7 +153,9 @@ export default function TicketsMonitorPage() {
         {hubError && <Alert severity="error">{hubError}</Alert>}
 
         <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
-          <Chip color="success" label={`Geçerli: ${stats.valid}`} />
+          <Chip color="primary" label={`Satılan bilet: ${gateStats.soldTicketCount}`} />
+          <Chip color="info" label={`Giriş yapan: ${gateStats.checkedInCount}`} />
+          <Chip color="success" label={`Geçerli (oturum): ${stats.valid}`} />
           <Chip color="warning" label={`Tekrar: ${stats.already_used}`} />
           <Chip color="error" label={`Yanlış kapı: ${stats.wrong}`} />
           <Chip label={`Diğer: ${stats.other}`} />

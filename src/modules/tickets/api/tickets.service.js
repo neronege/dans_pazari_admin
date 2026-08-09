@@ -41,3 +41,10 @@ export async function scanTicket(body) {
   });
   return response.data;
 }
+
+export async function getGateMonitorStats(eventId) {
+  const response = await httpClient.get(endpoints.admin.tickets.gateStats, {
+    params: { eventId }
+  });
+  return response.data;
+}

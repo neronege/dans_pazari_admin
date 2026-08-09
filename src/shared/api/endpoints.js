@@ -58,7 +58,8 @@ export const endpoints = {
       fulfillPayment: (id) => `/admin/orders/${id}/fulfill-payment`
     },
     tickets: {
-      scan: '/admin/tickets/scan'
+      scan: '/admin/tickets/scan',
+      gateStats: '/admin/tickets/gate-stats'
     },
     gate: {
       events: '/admin/gate/events',
