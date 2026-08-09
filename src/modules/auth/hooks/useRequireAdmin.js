@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { clearTokens, getAccessToken, getAccessTokenExpiryUtc } from 'shared/api';
-import { decodeJwtPayload, isAdminAccessToken } from 'modules/auth/model/jwt';
+import { decodeJwtPayload, isDoorStaffOnlyToken, isPanelAccessToken } from 'modules/auth/model/jwt';
 
 function isAccessTokenExpired(accessToken) {
   const now = Date.now();
@@ -25,6 +25,13 @@ function isAccessTokenExpired(accessToken) {
   return false;
 }
 
+function isDoorStaffAllowedPath(pathname) {
+  if (!pathname) {
+    return false;
+  }
+  return pathname === '/tickets' || pathname.startsWith('/tickets/');
+}
+
 export default function useRequireAdmin() {
   const router = useRouter();
   const pathname = usePathname();
@@ -34,13 +41,20 @@ export default function useRequireAdmin() {
   useEffect(() => {
     const accessToken = getAccessToken();
 
-    if (!accessToken || isAccessTokenExpired(accessToken) || !isAdminAccessToken(accessToken)) {
+    if (!accessToken || isAccessTokenExpired(accessToken) || !isPanelAccessToken(accessToken)) {
       clearTokens();
       setIsAuthorized(false);
       setIsChecking(false);
 
       const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
       router.replace(`/login${next}`);
+      return;
+    }
+
+    if (isDoorStaffOnlyToken(accessToken) && !isDoorStaffAllowedPath(pathname)) {
+      setIsAuthorized(false);
+      setIsChecking(false);
+      router.replace('/tickets');
       return;
     }
 

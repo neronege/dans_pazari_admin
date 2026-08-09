@@ -4,42 +4,63 @@ const operationsMenu = {
   id: 'group-operations',
   title: 'Operasyon',
   type: 'group',
-  requiredRoles: ['Admin'],
+  requiredRoles: ['Admin', 'DoorStaff'],
   children: [
     {
       id: 'orders',
       title: 'Siparişler',
       type: 'item',
       url: '/orders',
-      icon: ShoppingCartOutlined
+      icon: ShoppingCartOutlined,
+      requiredRoles: ['Admin']
     },
     {
       id: 'tickets',
-      title: 'Bilet Tarama',
+      title: 'Kapı Tarama',
       type: 'item',
       url: '/tickets',
-      icon: QrcodeOutlined
+      icon: QrcodeOutlined,
+      requiredRoles: ['Admin', 'DoorStaff']
+    },
+    {
+      id: 'tickets-monitor',
+      title: 'Kapı Monitörü',
+      type: 'item',
+      url: '/tickets/monitor',
+      icon: QrcodeOutlined,
+      requiredRoles: ['Admin', 'DoorStaff']
     },
     {
       id: 'refunds',
       title: 'İadeler',
       type: 'item',
       url: '/refunds',
-      icon: RedoOutlined
+      icon: RedoOutlined,
+      requiredRoles: ['Admin']
+    },
+    {
+      id: 'support',
+      title: 'Destek Gelen Kutusu',
+      type: 'item',
+      url: '/support',
+      icon: FileSearchOutlined,
+      requiredRoles: ['Admin']
     },
     {
       id: 'reports',
       title: 'Raporlar',
       type: 'item',
       url: '/reports',
-      icon: BarChartOutlined
+      icon: BarChartOutlined,
+      requiredRoles: ['Admin']
     },
     {
       id: 'audit-logs',
       title: 'Denetim Kayıtları',
       type: 'item',
       url: '/audit-logs',
-      icon: FileSearchOutlined
+      icon: FileSearchOutlined,
+      requiredRoles: ['Admin']
     }
   ]
 };

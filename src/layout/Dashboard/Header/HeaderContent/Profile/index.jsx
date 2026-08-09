@@ -49,7 +49,11 @@ function toDisplayRole(user, payload) {
   const schemaRole = payload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
   const role = user?.role || payload?.role || schemaRole;
   if (Array.isArray(role)) {
-    return role[0] || 'Admin';
+    return role[0] || 'Kullanıcı';
+  }
+
+  if (role === 'DoorStaff') {
+    return 'Kapı Görevlisi';
   }
 
   return role || 'Admin';

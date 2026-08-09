@@ -58,11 +58,21 @@ export const endpoints = {
     tickets: {
       scan: '/admin/tickets/scan'
     },
+    gate: {
+      events: '/admin/gate/events',
+      eventDetail: (id) => `/admin/gate/events/${id}`
+    },
     refunds: {
       list: '/admin/refund-requests',
       detail: (id) => `/admin/refund-requests/${id}`,
       approve: (id) => `/admin/refund-requests/${id}/approve`,
       reject: (id) => `/admin/refund-requests/${id}/reject`
+    },
+    support: {
+      inboundEmails: '/admin/support/inbound-emails',
+      inboundEmailDetail: (id) => `/admin/support/inbound-emails/${id}`,
+      markRead: (id) => `/admin/support/inbound-emails/${id}/read`,
+      reply: (id) => `/admin/support/inbound-emails/${id}/reply`
     },
     blog: {
       categories: '/admin/blog/categories',

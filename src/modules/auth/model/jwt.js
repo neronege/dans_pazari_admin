@@ -23,30 +23,49 @@ export function decodeJwtPayload(token) {
   }
 }
 
-export function isAdminPayload(payload) {
+function asRoleList(payload) {
   if (!payload || typeof payload !== 'object') {
-    return false;
+    return [];
   }
 
   const directRole = payload.role;
   const schemaRole = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+  const directList = Array.isArray(directRole) ? directRole : directRole ? [directRole] : [];
+  const schemaList = Array.isArray(schemaRole) ? schemaRole : schemaRole ? [schemaRole] : [];
+  return [...new Set([...directList, ...schemaList].filter(Boolean))];
+}
 
-  if (directRole === 'Admin' || schemaRole === 'Admin') {
-    return true;
-  }
+export function getRolesFromPayload(payload) {
+  return asRoleList(payload);
+}
 
-  if (Array.isArray(directRole) && directRole.includes('Admin')) {
-    return true;
-  }
+export function getRolesFromAccessToken(token) {
+  return getRolesFromPayload(decodeJwtPayload(token));
+}
 
-  if (Array.isArray(schemaRole) && schemaRole.includes('Admin')) {
-    return true;
-  }
+export function isAdminPayload(payload) {
+  return getRolesFromPayload(payload).includes('Admin');
+}
 
-  return false;
+export function isDoorStaffPayload(payload) {
+  return getRolesFromPayload(payload).includes('DoorStaff');
+}
+
+/** Admin paneline giriş: Admin veya DoorStaff */
+export function isPanelPayload(payload) {
+  const roles = getRolesFromPayload(payload);
+  return roles.includes('Admin') || roles.includes('DoorStaff');
 }
 
 export function isAdminAccessToken(token) {
-  const payload = decodeJwtPayload(token);
-  return isAdminPayload(payload);
+  return isAdminPayload(decodeJwtPayload(token));
+}
+
+export function isPanelAccessToken(token) {
+  return isPanelPayload(decodeJwtPayload(token));
+}
+
+export function isDoorStaffOnlyToken(token) {
+  const roles = getRolesFromAccessToken(token);
+  return roles.includes('DoorStaff') && !roles.includes('Admin');
 }

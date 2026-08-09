@@ -1,0 +1,174 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import MenuItem from '@mui/material/MenuItem';
+import Stack from '@mui/material/Stack';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import MainCard from 'components/MainCard';
+import useGateEvents from 'modules/tickets/hooks/useGateEvents';
+import { createPlatformHubConnection, ensureHubStarted } from 'modules/tickets/api/platformHub';
+import { loadGateContext } from 'modules/tickets/utils/gateContext';
+import { getScanResultMeta } from 'modules/tickets/utils/scanResultMeta';
+
+export default function TicketsMonitorPage() {
+  const gate = loadGateContext();
+  const { events } = useGateEvents({ status: 'Published' });
+  const [eventId, setEventId] = useState(gate?.eventId || '');
+  const [connected, setConnected] = useState(false);
+  const [hubError, setHubError] = useState('');
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    if (!eventId) {
+      setConnected(false);
+      return undefined;
+    }
+
+    const connection = createPlatformHubConnection();
+    let active = true;
+
+    const onScanned = (result) => {
+      if (!active) {
+        return;
+      }
+      setItems((prev) => [result, ...prev].slice(0, 50));
+    };
+
+    (async () => {
+      try {
+        setHubError('');
+        connection.on('TicketScanned', onScanned);
+        await ensureHubStarted(connection);
+        await connection.invoke('JoinEventGate', eventId);
+        if (active) {
+          setConnected(true);
+        }
+      } catch (error) {
+        if (active) {
+          setConnected(false);
+          setHubError(error?.message || 'SignalR bağlantısı kurulamadı.');
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+      connection.off('TicketScanned', onScanned);
+      connection
+        .invoke('LeaveEventGate', eventId)
+        .catch(() => {})
+        .finally(() => {
+          connection.stop().catch(() => {});
+        });
+      setConnected(false);
+    };
+  }, [eventId]);
+
+  const stats = useMemo(() => {
+    const counts = { valid: 0, already_used: 0, wrong: 0, other: 0 };
+    for (const item of items) {
+      const code = String(item?.resultCode || '').toLowerCase();
+      if (code === 'valid') counts.valid += 1;
+      else if (code === 'already_used') counts.already_used += 1;
+      else if (code === 'wrong_event' || code === 'wrong_session') counts.wrong += 1;
+      else counts.other += 1;
+    }
+    return counts;
+  }, [items]);
+
+  return (
+    <MainCard
+      title="Kapı Monitörü"
+      secondary={
+        <Button component={Link} href="/tickets" size="small">
+          Tarayıcıya dön
+        </Button>
+      }
+    >
+      <Stack sx={{ gap: 2 }}>
+        <TextField
+          select
+          label="İzlenen etkinlik"
+          value={eventId}
+          onChange={(event) => {
+            setItems([]);
+            setEventId(event.target.value);
+          }}
+          fullWidth
+        >
+          {(events || []).map((event) => (
+            <MenuItem key={event.id} value={event.id}>
+              {event.title || event.name || event.id}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <Alert severity={connected ? 'success' : 'warning'}>
+          {connected ? 'Canlı bağlantı açık (JoinEventGate).' : 'Bağlantı yok — etkinlik seçin veya API URL / JWT kontrol edin.'}
+        </Alert>
+        {hubError && <Alert severity="error">{hubError}</Alert>}
+
+        <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+          <Chip color="success" label={`Geçerli: ${stats.valid}`} />
+          <Chip color="warning" label={`Tekrar: ${stats.already_used}`} />
+          <Chip color="error" label={`Yanlış kapı: ${stats.wrong}`} />
+          <Chip label={`Diğer: ${stats.other}`} />
+        </Stack>
+
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Zaman</TableCell>
+                <TableCell>Sonuç</TableCell>
+                <TableCell>Bilet</TableCell>
+                <TableCell>Ad Soyad</TableCell>
+                <TableCell>Mesaj</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    Henüz canlı tarama yok.
+                  </TableCell>
+                </TableRow>
+              )}
+              {items.map((item, index) => {
+                const meta = getScanResultMeta(item.resultCode);
+                return (
+                  <TableRow key={`${item.scannedAtUtc || 'm'}-${item.ticketId || index}`} hover>
+                    <TableCell>
+                      {item.scannedAtUtc ? new Date(item.scannedAtUtc).toLocaleTimeString('tr-TR') : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={meta.label} color={meta.color} size="small" />
+                    </TableCell>
+                    <TableCell>{item.ticketNumber || '-'}</TableCell>
+                    <TableCell>{item.holderName || '-'}</TableCell>
+                    <TableCell>{item.resultMessage || '-'}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <Typography variant="body2" color="text.secondary">
+          Birden fazla kapı telefonu aynı anda tarayabilir; bu ekran seçili etkinliğin tüm taramalarını gösterir.
+        </Typography>
+      </Stack>
+    </MainCard>
+  );
+}

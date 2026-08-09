@@ -58,13 +58,14 @@ export default function AuthLogin() {
         })}
         onSubmit={async (values, { setErrors, setSubmitting, setTouched }) => {
           try {
-            await loginAndStoreSession({
+            const data = await loginAndStoreSession({
               email: values.email,
               password: values.password,
               keepSignedIn: checked
             });
 
-            router.replace(APP_DEFAULT_PATH);
+            const role = data?.user?.role;
+            router.replace(role === 'DoorStaff' ? '/tickets' : APP_DEFAULT_PATH);
           } catch (error) {
             const apiFieldErrors = getProblemFieldErrors(error?.problem, {
               email: ['email', 'eMail', 'username', 'userName'],

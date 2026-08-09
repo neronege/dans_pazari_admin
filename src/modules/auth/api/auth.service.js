@@ -7,10 +7,11 @@ function toAuthPayload(payload) {
   };
 }
 
-function assertAdminUser(user) {
-  if (!user || user.role !== 'Admin') {
-    const error = new Error('Bu hesap admin paneline erisemiyor.');
-    error.code = 'forbidden_non_admin';
+function assertPanelUser(user) {
+  const role = user?.role;
+  if (role !== 'Admin' && role !== 'DoorStaff') {
+    const error = new Error('Bu hesap panele erişemiyor.');
+    error.code = 'forbidden_non_panel';
     throw error;
   }
 }
@@ -22,7 +23,7 @@ export async function login(payload) {
 
 export async function loginAndStoreSession(payload) {
   const data = await login(payload);
-  assertAdminUser(data?.user);
+  assertPanelUser(data?.user);
   setTokens(data?.tokens);
   setCurrentUser(data?.user);
   return data;
@@ -40,7 +41,7 @@ export async function refreshSession(refreshTokenOverride) {
   );
 
   const data = response.data;
-  assertAdminUser(data?.user);
+  assertPanelUser(data?.user);
   setTokens(data?.tokens);
   if (data?.user) {
     setCurrentUser(data.user);
