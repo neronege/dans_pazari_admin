@@ -11,11 +11,17 @@ export async function getUsers(params = {}) {
       ...paging,
       search: params.search,
       status: params.status,
-      isGuest: params.isGuest
+      isGuest: params.isGuest,
+      role: params.role || undefined
     }
   });
 
   return normalizePagedResponse(response.data, paging);
+}
+
+export async function createUser(payload) {
+  const response = await httpClient.post(endpoints.admin.users.create, payload);
+  return response.data;
 }
 
 export async function getUserDetail(userId) {

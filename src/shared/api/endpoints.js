@@ -113,6 +113,7 @@ export const endpoints = {
     },
     users: {
       list: '/admin/users',
+      create: '/admin/users',
       detail: (id) => `/admin/users/${id}`,
       suspend: (id) => `/admin/users/${id}/suspend`,
       ban: (id) => `/admin/users/${id}/ban`,

@@ -11,18 +11,20 @@ export default function useUsers(filters = {}) {
   const search = filters.search || '';
   const status = filters.status || '';
   const isGuest = filters.isGuest || '';
+  const role = filters.role || '';
 
-  const key = ['admin/users', page, pageSize, search, status, isGuest];
+  const key = ['admin/users', page, pageSize, search, status, isGuest, role];
 
   const { data, error, isLoading, mutate } = useSWR(
     key,
-    ([, currentPage, currentPageSize, currentSearch, currentStatus, currentIsGuest]) =>
+    ([, currentPage, currentPageSize, currentSearch, currentStatus, currentIsGuest, currentRole]) =>
       getUsers({
         page: currentPage,
         pageSize: currentPageSize,
         search: currentSearch || undefined,
         status: currentStatus || undefined,
-        isGuest: currentIsGuest === '' ? undefined : currentIsGuest === 'true'
+        isGuest: currentIsGuest === '' ? undefined : currentIsGuest === 'true',
+        role: currentRole || undefined
       }),
     {
       revalidateOnFocus: false,
