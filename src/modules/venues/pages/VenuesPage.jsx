@@ -86,7 +86,7 @@ function loadGoogleMapsScript(apiKey) {
     script.id = GOOGLE_MAPS_SCRIPT_ID;
     script.async = true;
     script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&language=tr&region=TR`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&language=tr&region=TR&loading=async`;
     script.onload = () => resolve(window.google.maps);
     script.onerror = () => reject(new Error('Google Maps script yüklenemedi.'));
     document.head.appendChild(script);
@@ -133,6 +133,7 @@ export default function VenuesPage() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const markerClassRef = useRef(null);
   const geocoderRef = useRef(null);
 
   const { venues, isLoading, error, refresh } = useVenues({ city, search });
@@ -145,12 +146,23 @@ export default function VenuesPage() {
     const nextPosition = { lat, lng };
 
     if (!markerRef.current) {
-      markerRef.current = new window.google.maps.Marker({
-        map: mapRef.current,
-        position: nextPosition
-      });
+      if (markerClassRef.current) {
+        markerRef.current = new markerClassRef.current({
+          map: mapRef.current,
+          position: nextPosition
+        });
+      } else {
+        markerRef.current = new window.google.maps.Marker({
+          map: mapRef.current,
+          position: nextPosition
+        });
+      }
     } else {
-      markerRef.current.setPosition(nextPosition);
+      if (typeof markerRef.current.setPosition === 'function') {
+        markerRef.current.setPosition(nextPosition);
+      } else {
+        markerRef.current.position = nextPosition;
+      }
     }
 
     mapRef.current.panTo(nextPosition);
@@ -206,9 +218,18 @@ export default function VenuesPage() {
     setMapError('');
 
     loadGoogleMapsScript(googleMapsApiKey)
-      .then(() => {
+      .then(async () => {
         if (!mapContainerRef.current || mapRef.current) {
           return;
+        }
+
+        if (window.google?.maps?.importLibrary) {
+          try {
+            const markerLibrary = await window.google.maps.importLibrary('marker');
+            markerClassRef.current = markerLibrary?.AdvancedMarkerElement || null;
+          } catch {
+            markerClassRef.current = null;
+          }
         }
 
         const latitude = Number(form.latitude);
@@ -252,6 +273,7 @@ export default function VenuesPage() {
     }
 
     markerRef.current = null;
+    markerClassRef.current = null;
     mapRef.current = null;
     geocoderRef.current = null;
   }, [dialogOpen]);
