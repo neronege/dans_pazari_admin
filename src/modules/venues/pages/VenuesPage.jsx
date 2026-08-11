@@ -45,6 +45,7 @@ import { clearFieldError, getFieldError, getLocaleTabFromFieldErrors, withFieldE
 import { FIELD_LIMITS, lengthFieldProps, translationsHaveLengthErrors, isOverLimit } from 'shared/ui/fieldLength';
 
 const VENUE_FIELDS = { name: '', slug: '', description: '' };
+const VENUE_MAP_ID = 'fbaac9edab0fe380d93c3919';
 
 const initialForm = {
   translations: createEmptyTranslations(VENUE_FIELDS),
@@ -83,6 +84,7 @@ export default function VenuesPage() {
     apiKey: googleMapsApiKey,
     latitude: form.latitude,
     longitude: form.longitude,
+    mapId: VENUE_MAP_ID,
     onLocationChange: ({ latitude, longitude, city: nextCity, district: nextDistrict, address: nextAddress }) => {
       setForm((prev) => ({
         ...prev,

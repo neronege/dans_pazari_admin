@@ -66,7 +66,7 @@ function extractAddressFields(result) {
   };
 }
 
-export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude, onLocationChange }) {
+export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude, mapId, onLocationChange }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -204,6 +204,7 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
         mapRef.current = new MapCtor(mapContainerRef.current, {
           center,
           zoom: hasCoordinates ? 14 : 6,
+          mapId: mapId || undefined,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false
@@ -241,7 +242,7 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
       mapRef.current = null;
       geocoderRef.current = null;
     };
-  }, [enabled, apiKey]);
+  }, [enabled, apiKey, mapId]);
 
   return { mapContainerRef, mapError };
 }
