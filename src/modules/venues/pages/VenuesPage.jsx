@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -31,6 +31,7 @@ import {
   updateVenueActive
 } from 'modules/venues/api/venues.service';
 import { validateVenueImageFile, VENUE_IMAGE } from 'modules/venues/utils/venueImageConstraints';
+import useVenueGoogleMap from 'modules/venues/hooks/useVenueGoogleMap';
 import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
 import {
   buildTranslationsPayload,
@@ -57,62 +58,10 @@ const initialForm = {
   videoUrl: ''
 };
 
-const GOOGLE_MAPS_SCRIPT_ID = 'dp-google-maps-script';
-const DEFAULT_MAP_CENTER = { lat: 41.0082, lng: 28.9784 };
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_FILE_COUNT = 1;
 const MAX_TOTAL_REQUEST_BYTES = 20 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-
-function loadGoogleMapsScript(apiKey) {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error('Google Maps sadece tarayıcıda yüklenebilir.'));
-  }
-
-  if (window.google?.maps) {
-    return Promise.resolve(window.google.maps);
-  }
-
-  const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID);
-  if (existingScript) {
-    return new Promise((resolve, reject) => {
-      existingScript.addEventListener('load', () => resolve(window.google.maps), { once: true });
-      existingScript.addEventListener('error', () => reject(new Error('Google Maps script yüklenemedi.')), { once: true });
-    });
-  }
-
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.id = GOOGLE_MAPS_SCRIPT_ID;
-    script.async = true;
-    script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&language=tr&region=TR&loading=async`;
-    script.onload = () => resolve(window.google.maps);
-    script.onerror = () => reject(new Error('Google Maps script yüklenemedi.'));
-    document.head.appendChild(script);
-  });
-}
-
-function getAddressPart(components, targets) {
-  const found = components.find((component) => component.types.some((type) => targets.includes(type)));
-  return found?.long_name || '';
-}
-
-function extractAddressFields(result) {
-  const components = result?.address_components || [];
-
-  return {
-    city:
-      getAddressPart(components, ['administrative_area_level_1']) ||
-      getAddressPart(components, ['administrative_area_level_2']) ||
-      getAddressPart(components, ['locality']),
-    district:
-      getAddressPart(components, ['administrative_area_level_2']) ||
-      getAddressPart(components, ['sublocality_level_1']) ||
-      getAddressPart(components, ['sublocality']),
-    address: result?.formatted_address || ''
-  };
-}
 
 export default function VenuesPage() {
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -125,179 +74,28 @@ export default function VenuesPage() {
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
   const [formErrors, setFormErrors] = useState({});
-  const [mapError, setMapError] = useState('');
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [photoWarnings, setPhotoWarnings] = useState([]);
 
-  const mapContainerRef = useRef(null);
-  const mapRef = useRef(null);
-  const markerRef = useRef(null);
-  const mapClassRef = useRef(null);
-  const markerClassRef = useRef(null);
-  const geocoderRef = useRef(null);
+  const { mapContainerRef, mapError } = useVenueGoogleMap({
+    enabled: dialogOpen,
+    apiKey: googleMapsApiKey,
+    latitude: form.latitude,
+    longitude: form.longitude,
+    onLocationChange: ({ latitude, longitude, city: nextCity, district: nextDistrict, address: nextAddress }) => {
+      setForm((prev) => ({
+        ...prev,
+        latitude: latitude ?? prev.latitude,
+        longitude: longitude ?? prev.longitude,
+        city: nextCity || prev.city,
+        district: nextDistrict || prev.district,
+        address: nextAddress || prev.address
+      }));
+    }
+  });
 
   const { venues, isLoading, error, refresh } = useVenues({ city, search });
-
-  const setMarkerAt = (lat, lng) => {
-    if (!mapRef.current || !window.google?.maps) {
-      return;
-    }
-
-    const nextPosition = { lat, lng };
-
-    if (!markerRef.current) {
-      if (markerClassRef.current) {
-        markerRef.current = new markerClassRef.current({
-          map: mapRef.current,
-          position: nextPosition
-        });
-      } else {
-        markerRef.current = new window.google.maps.Marker({
-          map: mapRef.current,
-          position: nextPosition
-        });
-      }
-    } else {
-      if (typeof markerRef.current.setPosition === 'function') {
-        markerRef.current.setPosition(nextPosition);
-      } else {
-        markerRef.current.position = nextPosition;
-      }
-    }
-
-    mapRef.current.panTo(nextPosition);
-  };
-
-  const syncAddressFromLatLng = (lat, lng) => {
-    if (!geocoderRef.current) {
-      return;
-    }
-
-    geocoderRef.current
-      .geocode({ location: { lat, lng } })
-      .then(({ results }) => {
-        const selected = results?.[0];
-        if (!selected) {
-          return;
-        }
-
-        const nextFields = extractAddressFields(selected);
-        setForm((prev) => ({
-          ...prev,
-          city: nextFields.city || prev.city,
-          district: nextFields.district || prev.district,
-          address: nextFields.address || prev.address
-        }));
-      })
-      .catch(() => {
-        setMapError('Adres bilgisi alınamadı. Lütfen haritada farklı bir nokta seçin.');
-      });
-  };
-
-  const updateLocationFromMap = useCallback((lat, lng) => {
-    setMapError('');
-    setForm((prev) => ({
-      ...prev,
-      latitude: lat.toFixed(6),
-      longitude: lng.toFixed(6)
-    }));
-    setMarkerAt(lat, lng);
-    syncAddressFromLatLng(lat, lng);
-  }, []);
-
-  useEffect(() => {
-    if (!dialogOpen) {
-      return;
-    }
-
-    if (!googleMapsApiKey) {
-      setMapError('Google Maps API anahtarı bulunamadı. NEXT_PUBLIC_GOOGLE_MAPS_API_KEY tanımlayın.');
-      return;
-    }
-
-    setMapError('');
-
-    loadGoogleMapsScript(googleMapsApiKey)
-      .then(async () => {
-        if (!mapContainerRef.current || mapRef.current) {
-          return;
-        }
-
-        if (window.google?.maps?.importLibrary) {
-          try {
-            const mapsLibrary = await window.google.maps.importLibrary('maps');
-            mapClassRef.current = mapsLibrary?.Map || null;
-            geocoderRef.current = mapsLibrary?.Geocoder ? new mapsLibrary.Geocoder() : null;
-          } catch {
-            mapClassRef.current = null;
-            geocoderRef.current = null;
-          }
-
-          try {
-            const markerLibrary = await window.google.maps.importLibrary('marker');
-            markerClassRef.current = markerLibrary?.AdvancedMarkerElement || null;
-          } catch {
-            markerClassRef.current = null;
-          }
-        }
-
-        const latitude = Number(form.latitude);
-        const longitude = Number(form.longitude);
-        const hasCoordinates = !Number.isNaN(latitude) && !Number.isNaN(longitude);
-        const center = hasCoordinates ? { lat: latitude, lng: longitude } : DEFAULT_MAP_CENTER;
-
-        const MapCtor = mapClassRef.current || window.google?.maps?.Map;
-        const GeocoderCtor = window.google?.maps?.Geocoder;
-
-        if (typeof MapCtor !== 'function') {
-          throw new Error('Google Maps harita sınıfı yüklenemedi.');
-        }
-
-        mapRef.current = new MapCtor(mapContainerRef.current, {
-          center,
-          zoom: hasCoordinates ? 14 : 6,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false
-        });
-
-        if (!geocoderRef.current && typeof GeocoderCtor === 'function') {
-          geocoderRef.current = new GeocoderCtor();
-        }
-
-        if (hasCoordinates) {
-          setMarkerAt(latitude, longitude);
-        }
-
-        mapRef.current.addListener('click', (event) => {
-          const lat = event.latLng?.lat();
-          const lng = event.latLng?.lng();
-
-          if (typeof lat !== 'number' || typeof lng !== 'number') {
-            return;
-          }
-
-          updateLocationFromMap(lat, lng);
-        });
-      })
-      .catch((scriptError) => {
-        setMapError(scriptError.message || 'Google Maps yüklenemedi.');
-      });
-  }, [dialogOpen, form.latitude, form.longitude, googleMapsApiKey, updateLocationFromMap]);
-
-  useEffect(() => {
-    if (dialogOpen) {
-      return;
-    }
-
-    markerRef.current = null;
-    markerClassRef.current = null;
-    mapClassRef.current = null;
-    mapRef.current = null;
-    geocoderRef.current = null;
-  }, [dialogOpen]);
-
   const openCreateDialog = () => {
     setEditingId(null);
     setForm({
