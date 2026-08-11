@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 const GOOGLE_MAPS_SCRIPT_ID = 'dp-google-maps-script';
-const DEFAULT_MAP_CENTER = { lat: 41.0082, lng: 28.9784 };
+const DEFAULT_MAP_CENTER = { lat: 38.274631, lng: 27.343516 };
 
 function loadGoogleMapsScript(apiKey) {
   if (typeof window === 'undefined') {
