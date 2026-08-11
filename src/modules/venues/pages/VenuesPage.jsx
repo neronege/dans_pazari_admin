@@ -133,6 +133,7 @@ export default function VenuesPage() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const mapClassRef = useRef(null);
   const markerClassRef = useRef(null);
   const geocoderRef = useRef(null);
 
@@ -225,6 +226,15 @@ export default function VenuesPage() {
 
         if (window.google?.maps?.importLibrary) {
           try {
+            const mapsLibrary = await window.google.maps.importLibrary('maps');
+            mapClassRef.current = mapsLibrary?.Map || null;
+            geocoderRef.current = mapsLibrary?.Geocoder ? new mapsLibrary.Geocoder() : null;
+          } catch {
+            mapClassRef.current = null;
+            geocoderRef.current = null;
+          }
+
+          try {
             const markerLibrary = await window.google.maps.importLibrary('marker');
             markerClassRef.current = markerLibrary?.AdvancedMarkerElement || null;
           } catch {
@@ -237,7 +247,14 @@ export default function VenuesPage() {
         const hasCoordinates = !Number.isNaN(latitude) && !Number.isNaN(longitude);
         const center = hasCoordinates ? { lat: latitude, lng: longitude } : DEFAULT_MAP_CENTER;
 
-        mapRef.current = new window.google.maps.Map(mapContainerRef.current, {
+        const MapCtor = mapClassRef.current || window.google?.maps?.Map;
+        const GeocoderCtor = window.google?.maps?.Geocoder;
+
+        if (typeof MapCtor !== 'function') {
+          throw new Error('Google Maps harita sınıfı yüklenemedi.');
+        }
+
+        mapRef.current = new MapCtor(mapContainerRef.current, {
           center,
           zoom: hasCoordinates ? 14 : 6,
           mapTypeControl: false,
@@ -245,7 +262,9 @@ export default function VenuesPage() {
           fullscreenControl: false
         });
 
-        geocoderRef.current = new window.google.maps.Geocoder();
+        if (!geocoderRef.current && typeof GeocoderCtor === 'function') {
+          geocoderRef.current = new GeocoderCtor();
+        }
 
         if (hasCoordinates) {
           setMarkerAt(latitude, longitude);
@@ -274,6 +293,7 @@ export default function VenuesPage() {
 
     markerRef.current = null;
     markerClassRef.current = null;
+    mapClassRef.current = null;
     mapRef.current = null;
     geocoderRef.current = null;
   }, [dialogOpen]);
