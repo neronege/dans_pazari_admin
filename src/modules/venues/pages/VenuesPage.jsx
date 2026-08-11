@@ -17,6 +17,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import MainCard from 'components/MainCard';
@@ -79,7 +80,7 @@ export default function VenuesPage() {
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [photoWarnings, setPhotoWarnings] = useState([]);
 
-  const { mapContainerRef, mapError } = useVenueGoogleMap({
+  const { mapContainerRef, addressInputRef, mapError, searchByAddress } = useVenueGoogleMap({
     enabled: dialogOpen,
     apiKey: googleMapsApiKey,
     latitude: form.latitude,
@@ -516,44 +517,63 @@ export default function VenuesPage() {
             <TextField
               label="Adres"
               value={form.address}
+              inputRef={addressInputRef}
               onChange={(event) => {
                 const value = event.target.value;
                 setForm((prev) => ({ ...prev, address: value }));
                 setFormErrors((prev) => clearFieldError(prev, 'address'));
               }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  searchByAddress(form.address);
+                }
+              }}
               required
               error={Boolean(getFieldError(formErrors, 'address'))}
-              helperText={withFieldError(getFieldError(formErrors, 'address'), 'Adres tüm dillerde aynı kullanılır.')}
+              helperText={withFieldError(
+                getFieldError(formErrors, 'address'),
+                'Adres yazıp Enter / Haritada bul, veya öneriden seçin. Tüm dillerde aynı kullanılır.'
+              )}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Button size="small" onClick={() => searchByAddress(form.address)} sx={{ whiteSpace: 'nowrap' }}>
+                        Haritada bul
+                      </Button>
+                    </InputAdornment>
+                  )
+                }
+              }}
             />
             <TextField
               label="İlçe"
               value={form.district}
-              onChange={(event) => setForm((prev) => ({ ...prev, district: event.target.value }))}
+              slotProps={{ input: { readOnly: true } }}
               {...lengthFieldProps(form.district, FIELD_LIMITS.venue.district)}
+              helperText="Haritadan konum seçildiğinde otomatik dolar."
             />
             <TextField
               label="Şehir"
               value={form.city}
-              onChange={(event) => {
-                const value = event.target.value;
-                setForm((prev) => ({ ...prev, city: value }));
-                setFormErrors((prev) => clearFieldError(prev, 'city'));
-              }}
               required
-              error={Boolean(getFieldError(formErrors, 'city'))}
-              helperText={withFieldError(getFieldError(formErrors, 'city'), lengthFieldProps(form.city, FIELD_LIMITS.venue.city).helperText)}
+              slotProps={{ input: { readOnly: true } }}
               {...lengthFieldProps(form.city, FIELD_LIMITS.venue.city)}
+              error={Boolean(getFieldError(formErrors, 'city'))}
+              helperText={withFieldError(
+                getFieldError(formErrors, 'city'),
+                'Haritadan konum seçildiğinde otomatik dolar.'
+              )}
             />
-            <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
-              <TextField type="number" label="Enlem" value={form.latitude} slotProps={{ input: { readOnly: true } }} fullWidth />
-              <TextField type="number" label="Boylam" value={form.longitude} slotProps={{ input: { readOnly: true } }} fullWidth />
-            </Stack>
             <Stack sx={{ gap: 1 }}>
               <Box
                 ref={mapContainerRef}
                 sx={{ width: '100%', height: 280, borderRadius: 1, border: (theme) => `1px solid ${theme.palette.divider}` }}
               />
-              <Alert severity="info">Haritaya tıklayarak mekan konumunu seçin. Enlem, boylam, şehir ve ilçe otomatik doldurulur.</Alert>
+              <Alert severity="info">
+                Adres yazarak arayın veya haritaya tıklayın. Şehir ve ilçe otomatik doldurulur.
+              </Alert>
               {mapError && <Alert severity="warning">{mapError}</Alert>}
             </Stack>
             <Stack sx={{ gap: 1 }}>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const GOOGLE_MAPS_SCRIPT_ID = 'dp-google-maps-script';
+const PAC_STYLE_ID = 'dp-google-maps-pac-style';
 const DEFAULT_MAP_CENTER = { lat: 38.274631, lng: 27.343516 };
 
 /** Boş string Number('')===0 olduğu için Afrika/deniz (0,0) sanılmasın. */
@@ -18,6 +19,18 @@ function parseCoordinate(value) {
 
   const n = typeof trimmed === 'number' ? trimmed : Number(trimmed);
   return Number.isFinite(n) ? n : null;
+}
+
+function ensurePacContainerAboveDialog() {
+  if (typeof document === 'undefined' || document.getElementById(PAC_STYLE_ID)) {
+    return;
+  }
+
+  const style = document.createElement('style');
+  style.id = PAC_STYLE_ID;
+  // MUI Dialog z-index ~1300; Places önerileri dialog üstünde kalsın.
+  style.textContent = '.pac-container{z-index:1500 !important;}';
+  document.head.appendChild(style);
 }
 
 function loadGoogleMapsScript(apiKey) {
@@ -54,7 +67,7 @@ function loadGoogleMapsScript(apiKey) {
     script.id = GOOGLE_MAPS_SCRIPT_ID;
     script.async = true;
     script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&language=tr&region=TR&libraries=maps,marker&loading=async&callback=${callbackName}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&language=tr&region=TR&libraries=maps,marker,places&loading=async&callback=${callbackName}`;
     script.onerror = () => reject(new Error('Google Maps script yüklenemedi.'));
     document.head.appendChild(script);
   });
@@ -83,11 +96,14 @@ function extractAddressFields(result) {
 
 export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude, mapId, onLocationChange }) {
   const mapContainerRef = useRef(null);
+  const addressInputRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const markerClassRef = useRef(null);
   const geocoderRef = useRef(null);
+  const autocompleteRef = useRef(null);
   const clickListenerRef = useRef(null);
+  const placeListenerRef = useRef(null);
   const latitudeRef = useRef(latitude);
   const longitudeRef = useRef(longitude);
   const onLocationChangeRef = useRef(onLocationChange);
@@ -139,15 +155,16 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
     mapRef.current.panTo(nextPosition);
   };
 
-  const handleLocationPick = (lat, lng) => {
+  const handleLocationPick = (lat, lng, addressFields) => {
     setMapError('');
     emitLocationChange({
       latitude: lat.toFixed(6),
-      longitude: lng.toFixed(6)
+      longitude: lng.toFixed(6),
+      ...(addressFields || {})
     });
     setMarkerAt(lat, lng);
 
-    if (!geocoderRef.current) {
+    if (addressFields || !geocoderRef.current) {
       return;
     }
 
@@ -170,6 +187,92 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
       });
   };
 
+  const searchByAddress = useCallback(async (query) => {
+    const address = String(query || '').trim();
+    if (!address) {
+      setMapError('Haritada aramak için bir adres yazın.');
+      return false;
+    }
+
+    if (!geocoderRef.current) {
+      setMapError('Harita henüz hazır değil. Biraz bekleyip tekrar deneyin.');
+      return false;
+    }
+
+    try {
+      const { results } = await geocoderRef.current.geocode({
+        address,
+        componentRestrictions: { country: 'TR' }
+      });
+      const selected = results?.[0];
+      const location = selected?.geometry?.location;
+      const lat = location?.lat?.();
+      const lng = location?.lng?.();
+
+      if (typeof lat !== 'number' || typeof lng !== 'number') {
+        setMapError('Adres bulunamadı. Daha spesifik yazın veya haritadan seçin.');
+        return false;
+      }
+
+      if (mapRef.current) {
+        mapRef.current.setZoom(16);
+      }
+
+      handleLocationPick(lat, lng, extractAddressFields(selected));
+      return true;
+    } catch {
+      setMapError('Adres aranamadı. Bağlantıyı kontrol edip tekrar deneyin.');
+      return false;
+    }
+  }, []);
+
+  const bindAddressAutocomplete = async () => {
+    const input = addressInputRef.current;
+    if (!input || autocompleteRef.current || !window.google?.maps) {
+      return;
+    }
+
+    try {
+      if (!window.google.maps.places?.Autocomplete && typeof window.google.maps.importLibrary === 'function') {
+        await window.google.maps.importLibrary('places');
+      }
+    } catch {
+      // Places yoksa sadece "Haritada bul" / Enter ile geocode çalışır.
+      return;
+    }
+
+    const AutocompleteCtor = window.google.maps.places?.Autocomplete;
+    if (typeof AutocompleteCtor !== 'function') {
+      return;
+    }
+
+    ensurePacContainerAboveDialog();
+
+    const autocomplete = new AutocompleteCtor(input, {
+      fields: ['geometry', 'formatted_address', 'address_components'],
+      componentRestrictions: { country: 'tr' }
+    });
+
+    autocompleteRef.current = autocomplete;
+    placeListenerRef.current = autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      const location = place?.geometry?.location;
+      const lat = location?.lat?.();
+      const lng = location?.lng?.();
+
+      if (typeof lat !== 'number' || typeof lng !== 'number') {
+        setMapError('Seçilen öneriden konum alınamadı. Haritadan seçmeyi deneyin.');
+        return;
+      }
+
+      if (mapRef.current) {
+        mapRef.current.setZoom(16);
+      }
+
+      handleLocationPick(lat, lng, extractAddressFields(place));
+    });
+  };
+
   useEffect(() => {
     if (!enabled) {
       setMapError('');
@@ -177,7 +280,15 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
         if (clickListenerRef.current?.remove) {
           clickListenerRef.current.remove();
         }
+        if (placeListenerRef.current?.remove) {
+          placeListenerRef.current.remove();
+        }
+        if (autocompleteRef.current && window.google?.maps?.event) {
+          window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        }
         clickListenerRef.current = null;
+        placeListenerRef.current = null;
+        autocompleteRef.current = null;
         markerRef.current = null;
         markerClassRef.current = null;
         mapRef.current = null;
@@ -241,6 +352,13 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
 
           handleLocationPick(lat, lng);
         });
+
+        // Dialog içeriği render olduktan sonra input bağlansın.
+        requestAnimationFrame(() => {
+          if (!cancelled) {
+            bindAddressAutocomplete();
+          }
+        });
       })
       .catch((scriptError) => {
         if (!cancelled) {
@@ -253,7 +371,15 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
       if (clickListenerRef.current?.remove) {
         clickListenerRef.current.remove();
       }
+      if (placeListenerRef.current?.remove) {
+        placeListenerRef.current.remove();
+      }
+      if (autocompleteRef.current && window.google?.maps?.event) {
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
       clickListenerRef.current = null;
+      placeListenerRef.current = null;
+      autocompleteRef.current = null;
       markerRef.current = null;
       markerClassRef.current = null;
       mapRef.current = null;
@@ -261,5 +387,5 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
     };
   }, [enabled, apiKey, mapId]);
 
-  return { mapContainerRef, mapError };
+  return { mapContainerRef, addressInputRef, mapError, searchByAddress };
 }
