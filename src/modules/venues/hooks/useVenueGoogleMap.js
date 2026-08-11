@@ -5,6 +5,21 @@ import { useEffect, useRef, useState } from 'react';
 const GOOGLE_MAPS_SCRIPT_ID = 'dp-google-maps-script';
 const DEFAULT_MAP_CENTER = { lat: 38.274631, lng: 27.343516 };
 
+/** Boş string Number('')===0 olduğu için Afrika/deniz (0,0) sanılmasın. */
+function parseCoordinate(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const trimmed = typeof value === 'string' ? value.trim() : value;
+  if (trimmed === '') {
+    return null;
+  }
+
+  const n = typeof trimmed === 'number' ? trimmed : Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
 function loadGoogleMapsScript(apiKey) {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('Google Maps sadece tarayıcıda yüklenebilir.'));
@@ -196,14 +211,16 @@ export default function useVenueGoogleMap({ enabled, apiKey, latitude, longitude
         markerClassRef.current = typeof AdvancedMarkerCtor === 'function' ? AdvancedMarkerCtor : null;
         geocoderRef.current = typeof GeocoderCtor === 'function' ? new GeocoderCtor() : null;
 
-        const latitudeNumber = Number(latitudeRef.current);
-        const longitudeNumber = Number(longitudeRef.current);
-        const hasCoordinates = !Number.isNaN(latitudeNumber) && !Number.isNaN(longitudeNumber);
-        const center = hasCoordinates ? { lat: latitudeNumber, lng: longitudeNumber } : DEFAULT_MAP_CENTER;
+        const latitudeNumber = parseCoordinate(latitudeRef.current);
+        const longitudeNumber = parseCoordinate(longitudeRef.current);
+        const hasCoordinates = latitudeNumber !== null && longitudeNumber !== null;
+        const center = hasCoordinates
+          ? { lat: latitudeNumber, lng: longitudeNumber }
+          : DEFAULT_MAP_CENTER;
 
         mapRef.current = new MapCtor(mapContainerRef.current, {
           center,
-          zoom: hasCoordinates ? 14 : 6,
+          zoom: hasCoordinates ? 14 : 11,
           mapId: mapId || undefined,
           mapTypeControl: false,
           streetViewControl: false,
