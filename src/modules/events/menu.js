@@ -1,4 +1,11 @@
-import { CalendarOutlined, FolderOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import {
+  CalendarOutlined,
+  FolderOutlined,
+  EnvironmentOutlined,
+  TeamOutlined,
+  SoundOutlined,
+  BankOutlined
+} from '@ant-design/icons';
 
 const catalogMenu = {
   id: 'group-catalog',
@@ -26,6 +33,27 @@ const catalogMenu = {
       type: 'item',
       url: '/events',
       icon: CalendarOutlined
+    },
+    {
+      id: 'organizers',
+      title: 'Organizatörler',
+      type: 'item',
+      url: '/organizers',
+      icon: TeamOutlined
+    },
+    {
+      id: 'dance-schools',
+      title: 'Dans Okulları',
+      type: 'item',
+      url: '/dance-schools',
+      icon: BankOutlined
+    },
+    {
+      id: 'promoters',
+      title: 'Promotörler',
+      type: 'item',
+      url: '/promoters',
+      icon: SoundOutlined
     }
   ]
 };

@@ -103,6 +103,11 @@ export const endpoints = {
       publish: (id) => `/admin/faq/${id}/publish`,
       unpublish: (id) => `/admin/faq/${id}/unpublish`
     },
+    partners: {
+      list: '/admin/partners',
+      detail: (id) => `/admin/partners/${id}`,
+      active: (id) => `/admin/partners/${id}/active`
+    },
     raffles: {
       list: '/admin/raffles',
       detail: (id) => `/admin/raffles/${id}`,
