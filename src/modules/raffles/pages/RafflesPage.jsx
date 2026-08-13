@@ -7,9 +7,11 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Pagination from '@mui/material/Pagination';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -28,6 +30,7 @@ import {
   getRaffleWinners,
   openRaffle,
   scheduleRaffle,
+  setRaffleHomepage,
   updateRaffle
 } from 'modules/raffles/api/raffles.service';
 import useRaffles from 'modules/raffles/hooks/useRaffles';
@@ -38,7 +41,8 @@ const initialForm = {
   title: '',
   startsAtUtc: '',
   endsAtUtc: '',
-  description: ''
+  description: '',
+  showOnHomepage: false
 };
 
 function field(value, fallback = '-') {
@@ -118,7 +122,8 @@ export default function RafflesPage() {
         title: detailResponse?.title || '',
         startsAtUtc: toDateTimeLocalFromIso(detailResponse?.startsAtUtc),
         endsAtUtc: toDateTimeLocalFromIso(detailResponse?.endsAtUtc),
-        description: detailResponse?.description || ''
+        description: detailResponse?.description || '',
+        showOnHomepage: Boolean(detailResponse?.showOnHomepage)
       });
       setFormErrors({});
       setDialogOpen(true);
@@ -163,7 +168,8 @@ export default function RafflesPage() {
       title: form.title,
       startsAtUtc,
       endsAtUtc,
-      description: form.description || null
+      description: form.description || null,
+      showOnHomepage: Boolean(form.showOnHomepage)
     };
 
     try {
@@ -245,6 +251,16 @@ export default function RafflesPage() {
     }
   };
 
+  const toggleHomepage = async (raffle) => {
+    try {
+      setActionError('');
+      await setRaffleHomepage(raffle.id, !raffle.showOnHomepage);
+      await refresh();
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    }
+  };
+
   const onDelete = async (raffle) => {
     const confirmed = window.confirm(`${raffle.title} çekilişini silmek istiyor musunuz?`);
     if (!confirmed) {
@@ -313,13 +329,14 @@ export default function RafflesPage() {
                   <TableCell>Durum</TableCell>
                   <TableCell>Başlangıç</TableCell>
                   <TableCell>Bitiş</TableCell>
+                  <TableCell>Anasayfa</TableCell>
                   <TableCell align="right">İşlemler</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={6} align="center">
                       Yükleniyor...
                     </TableCell>
                   </TableRow>
@@ -327,7 +344,7 @@ export default function RafflesPage() {
 
                 {!isLoading && raffles.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={6} align="center">
                       Gösterilecek çekiliş bulunamadı.
                     </TableCell>
                   </TableRow>
@@ -340,6 +357,13 @@ export default function RafflesPage() {
                       <TableCell>{field(raffle.status)}</TableCell>
                       <TableCell>{field(raffle.startsAtUtc)}</TableCell>
                       <TableCell>{field(raffle.endsAtUtc)}</TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={Boolean(raffle.showOnHomepage)}
+                          onChange={() => toggleHomepage(raffle)}
+                          size="small"
+                        />
+                      </TableCell>
                       <TableCell align="right">
                         <Button size="small" onClick={() => openDetail(raffle.id)}>
                           Detay
@@ -423,6 +447,15 @@ export default function RafflesPage() {
               multiline
               minRows={3}
             />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={Boolean(form.showOnHomepage)}
+                  onChange={(event) => setForm((prev) => ({ ...prev, showOnHomepage: event.target.checked }))}
+                />
+              }
+              label="Anasayfada görünsün"
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -442,6 +475,7 @@ export default function RafflesPage() {
             <Typography>Başlangıç: {field(detail?.startsAtUtc)}</Typography>
             <Typography>Bitiş: {field(detail?.endsAtUtc)}</Typography>
             <Typography>Açıklama: {field(detail?.description)}</Typography>
+            <Typography>Anasayfa: {detail?.showOnHomepage ? 'Evet' : 'Hayır'}</Typography>
             <Typography>Katılım Sayısı: {entriesCount}</Typography>
             <Typography>Kazanan Sayısı: {winnersCount}</Typography>
           </Stack>

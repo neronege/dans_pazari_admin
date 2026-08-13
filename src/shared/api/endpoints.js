@@ -103,6 +103,13 @@ export const endpoints = {
       publish: (id) => `/admin/faq/${id}/publish`,
       unpublish: (id) => `/admin/faq/${id}/unpublish`
     },
+    polls: {
+      list: '/admin/polls',
+      detail: (id) => `/admin/polls/${id}`,
+      publish: (id) => `/admin/polls/${id}/publish`,
+      unpublish: (id) => `/admin/polls/${id}/unpublish`,
+      homepage: (id) => `/admin/polls/${id}/homepage`
+    },
     partners: {
       list: '/admin/partners',
       detail: (id) => `/admin/partners/${id}`,
@@ -114,6 +121,7 @@ export const endpoints = {
       schedule: (id) => `/admin/raffles/${id}/schedule`,
       open: (id) => `/admin/raffles/${id}/open`,
       cancel: (id) => `/admin/raffles/${id}/cancel`,
+      homepage: (id) => `/admin/raffles/${id}/homepage`,
       prizes: (id) => `/admin/raffles/${id}/prizes`,
       prizeDetail: (id, prizeId) => `/admin/raffles/${id}/prizes/${prizeId}`,
       entries: (id) => `/admin/raffles/${id}/entries`,

@@ -45,6 +45,11 @@ export async function cancelRaffle(raffleId) {
   await httpClient.patch(endpoints.admin.raffles.cancel(raffleId), {});
 }
 
+export async function setRaffleHomepage(raffleId, showOnHomepage) {
+  const response = await httpClient.patch(endpoints.admin.raffles.homepage(raffleId), { showOnHomepage });
+  return response.data;
+}
+
 export async function getRaffleEntries(raffleId, params = {}) {
   const paging = buildPageQuery({ page: params.page, pageSize: params.pageSize });
   const response = await httpClient.get(endpoints.admin.raffles.entries(raffleId), {

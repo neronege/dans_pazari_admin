@@ -22,6 +22,7 @@ import Typography from '@mui/material/Typography';
 import MainCard from 'components/MainCard';
 import { getCategories } from 'modules/categories/api/categories.service';
 import useVenues from 'modules/venues/hooks/useVenues';
+import { getPartners, PARTNER_KIND } from 'modules/partners/api/partners.service';
 import {
   cancelEventSession,
   cancelEvent,
@@ -89,9 +90,7 @@ const initialForm = {
   startsAtLocal: '',
   endsAtLocal: '',
   doorOpensNote: '',
-  organizerFirstName: '',
-  organizerLastName: '',
-  organizerAbout: '',
+  organizerPartnerId: '',
   videoUrl: ''
 };
 
@@ -147,6 +146,49 @@ function flattenCategories(categories, level = 0) {
 
     return [row, ...flattenCategories(category.children || [], level + 1)];
   });
+}
+
+function organizerOptionLabel(partner) {
+  const title = String(partner?.companyTitle || partner?.name || '').trim();
+  const person = String(partner?.authorizedPerson || '').trim();
+  if (title && person && title !== person) {
+    return `${title} (${person})`;
+  }
+  return title || person || partner?.email || partner?.id || 'Organizatör';
+}
+
+function fieldsFromOrganizerPartner(partner) {
+  if (!partner) {
+    return { organizerFirstName: null, organizerLastName: null, organizerAbout: null };
+  }
+
+  const company = String(partner.companyTitle || partner.name || '').trim();
+  const person = String(partner.authorizedPerson || '').trim();
+
+  return {
+    organizerFirstName: company || person || null,
+    organizerLastName: null,
+    organizerAbout: person && company && person !== company ? person : null
+  };
+}
+
+function resolveOrganizerPartnerId(detail, organizers) {
+  if (detail?.organizerPartnerId) {
+    return String(detail.organizerPartnerId);
+  }
+
+  const full = [detail?.organizerFirstName, detail?.organizerLastName].filter(Boolean).join(' ').trim();
+  if (!full) {
+    return '';
+  }
+
+  const match = (organizers || []).find((item) => {
+    const title = String(item.companyTitle || item.name || '').trim();
+    const person = String(item.authorizedPerson || '').trim();
+    return title === full || person === full;
+  });
+
+  return match?.id ? String(match.id) : '';
 }
 
 function normalizeEventStatus(value) {
@@ -238,8 +280,22 @@ export default function EventsPage() {
     revalidateOnFocus: false,
     shouldRetryOnError: false
   });
+  const { data: organizerOptions = [] } = useSWR(
+    'admin/organizers-for-events',
+    () => getPartners({ kind: PARTNER_KIND.Organizer }),
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false
+    }
+  );
 
   const categoryOptions = useMemo(() => flattenCategories(categoryTree), [categoryTree]);
+  const organizerSelectOptions = useMemo(() => {
+    const list = Array.isArray(organizerOptions) ? organizerOptions : [];
+    return list.filter(
+      (item) => item.isActive !== false || String(item.id) === String(form.organizerPartnerId)
+    );
+  }, [organizerOptions, form.organizerPartnerId]);
   const coverPreviewUrl = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : ''), [coverFile]);
   const bannerPreviewUrl = useMemo(() => (bannerFile ? URL.createObjectURL(bannerFile) : ''), [bannerFile]);
   const galleryPreviewItems = useMemo(
@@ -355,9 +411,7 @@ export default function EventsPage() {
         startsAtLocal: toDateTimeLocalFromIso(primarySession?.startsAtUtc),
         endsAtLocal: toDateTimeLocalFromIso(primarySession?.endsAtUtc),
         doorOpensNote: primarySession?.doorOpensNote || '',
-        organizerFirstName: detail?.organizerFirstName || '',
-        organizerLastName: detail?.organizerLastName || '',
-        organizerAbout: detail?.organizerAbout || '',
+        organizerPartnerId: resolveOrganizerPartnerId(detail, organizerOptions),
         videoUrl: detail?.videoUrl || ''
       });
       setLocaleTab('tr');
@@ -599,14 +653,20 @@ export default function EventsPage() {
       metaDescription: 'metaDescription'
     });
 
+    const selectedOrganizer = (Array.isArray(organizerOptions) ? organizerOptions : []).find(
+      (item) => String(item.id) === String(form.organizerPartnerId)
+    );
+    const organizerFields = fieldsFromOrganizerPartner(selectedOrganizer);
+
     const payload = {
       ...root,
       categoryId: form.categoryId,
       venueId: form.venueId,
       sortOrder: Number.isFinite(Number(form.sortOrder)) ? Number(form.sortOrder) : 0,
-      organizerFirstName: form.organizerFirstName.trim() || null,
-      organizerLastName: form.organizerLastName.trim() || null,
-      organizerAbout: form.organizerAbout.trim() || null,
+      organizerPartnerId: form.organizerPartnerId || null,
+      organizerFirstName: organizerFields.organizerFirstName,
+      organizerLastName: organizerFields.organizerLastName,
+      organizerAbout: organizerFields.organizerAbout,
       videoUrl: form.videoUrl.trim() || null,
       translations
     };
@@ -1861,31 +1921,25 @@ export default function EventsPage() {
               )}
               fullWidth
             />
-            <Typography variant="subtitle2">Düzenleyen Kişi (opsiyonel)</Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
-              <TextField
-                label="Ad"
-                value={form.organizerFirstName}
-                onChange={(event) => setForm((prev) => ({ ...prev, organizerFirstName: event.target.value }))}
-                fullWidth
-                {...lengthFieldProps(form.organizerFirstName, FIELD_LIMITS.event.organizerFirstName)}
-              />
-              <TextField
-                label="Soyad"
-                value={form.organizerLastName}
-                onChange={(event) => setForm((prev) => ({ ...prev, organizerLastName: event.target.value }))}
-                fullWidth
-                {...lengthFieldProps(form.organizerLastName, FIELD_LIMITS.event.organizerLastName)}
-              />
-            </Stack>
             <TextField
-              label="Hakkında"
-              value={form.organizerAbout}
-              onChange={(event) => setForm((prev) => ({ ...prev, organizerAbout: event.target.value }))}
-              multiline
-              minRows={3}
+              select
+              label="Organizatör (opsiyonel)"
+              value={form.organizerPartnerId}
+              onChange={(event) => setForm((prev) => ({ ...prev, organizerPartnerId: event.target.value }))}
+              helperText={
+                organizerSelectOptions.length === 0
+                  ? 'Henüz organizatör yok. Önce Katalog > Organizatörler bölümünden ekleyin.'
+                  : 'Listeden organizatör seçin.'
+              }
               fullWidth
-            />
+            >
+              <MenuItem value="">Seçilmedi</MenuItem>
+              {organizerSelectOptions.map((partner) => (
+                <MenuItem key={partner.id} value={String(partner.id)}>
+                  {organizerOptionLabel(partner)}
+                </MenuItem>
+              ))}
+            </TextField>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -1902,9 +1956,7 @@ export default function EventsPage() {
                 metaTitle: FIELD_LIMITS.event.metaTitle,
                 metaDescription: FIELD_LIMITS.event.metaDescription
               }) ||
-              isOverLimit(form.videoUrl, FIELD_LIMITS.event.videoUrl) ||
-              isOverLimit(form.organizerFirstName, FIELD_LIMITS.event.organizerFirstName) ||
-              isOverLimit(form.organizerLastName, FIELD_LIMITS.event.organizerLastName)
+              isOverLimit(form.videoUrl, FIELD_LIMITS.event.videoUrl)
             }
           >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
