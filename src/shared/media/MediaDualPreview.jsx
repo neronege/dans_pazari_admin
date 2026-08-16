@@ -7,7 +7,7 @@ import { MEDIA_PREVIEW } from 'shared/media/previewFrames';
 
 function PreviewFrame({ src, alt, label, aspectRatio, maxWidth, objectFit, onClick }) {
   return (
-    <Stack sx={{ gap: 0.75, flex: '0 1 auto', minWidth: 0 }}>
+    <Stack sx={{ gap: 0.75, flex: '0 0 auto', width: maxWidth, maxWidth: '100%' }}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
         {label}
       </Typography>
@@ -15,7 +15,6 @@ function PreviewFrame({ src, alt, label, aspectRatio, maxWidth, objectFit, onCli
         onClick={onClick}
         sx={{
           width: '100%',
-          maxWidth,
           aspectRatio,
           borderRadius: 1,
           overflow: 'hidden',
@@ -44,7 +43,7 @@ function PreviewFrame({ src, alt, label, aspectRatio, maxWidth, objectFit, onCli
 
 /**
  * Aynı görseli web ve mobil slot oranlarında yan yana gösterir.
- * @param {'eventHero'|'eventGallery'|'eventSponsor'|'venue'|'blog'|'poll'} preset
+ * @param {'eventHero'|'eventBanner'|'eventGallery'|'eventSponsor'|'venue'|'blog'|'poll'} preset
  */
 export default function MediaDualPreview({
   src,

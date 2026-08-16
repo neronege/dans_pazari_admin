@@ -4,13 +4,22 @@
  */
 
 export const MEDIA_PREVIEW = {
-  /** Etkinlik kapak + banner: detay 900×530, liste 3:2 */
+  /** Etkinlik kapak: detay 900×530, liste 3:2 */
   eventHero: {
     web: { label: 'Web · Detay', aspectRatio: '900 / 530', maxWidth: 360 },
     mobile: { label: 'Mobil · Liste', aspectRatio: '3 / 2', maxWidth: 168 },
     objectFit: 'cover'
   },
-  /** Galeri: her yerde 3:2; genişlik farkı responsive kırpmayı gösterir */
+  /**
+   * Anasayfa banner: yüklenen kırpma 900×530.
+   * Web + mobil aynı oranı kullanır (mobil sitede de aynı çerçeve).
+   */
+  eventBanner: {
+    web: { label: 'Web · Anasayfa', aspectRatio: '900 / 530', maxWidth: 360 },
+    mobile: { label: 'Mobil · Anasayfa', aspectRatio: '900 / 530', maxWidth: 200 },
+    objectFit: 'cover'
+  },
+  /** Galeri: her yerde 3:2 */
   eventGallery: {
     web: { label: 'Web · Galeri', aspectRatio: '3 / 2', maxWidth: 280 },
     mobile: { label: 'Mobil · Galeri', aspectRatio: '3 / 2', maxWidth: 160 },

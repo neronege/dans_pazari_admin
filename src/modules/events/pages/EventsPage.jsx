@@ -1755,7 +1755,7 @@ export default function EventsPage() {
               <Typography variant="subtitle2">Banner Görseli (opsiyonel)</Typography>
               <Typography variant="caption" color="text.secondary">
                 Oran sabit (~900×530). Kırpma ile kadraj seçilir; minimum {EVENT_COVER_IMAGE.targetWidth}×
-                {EVENT_COVER_IMAGE.targetHeight}px altı kabul edilmez.
+                {EVENT_COVER_IMAGE.targetHeight}px altı kabul edilmez. Mobil sitede de aynı çerçeve kullanılır.
               </Typography>
               <Button variant="outlined" component="label">
                 {bannerFile ? `Seçildi: ${bannerFile.name}` : 'Banner Seç'}
@@ -1777,7 +1777,7 @@ export default function EventsPage() {
                   <MediaDualPreview
                     src={bannerPreviewUrl}
                     alt="Banner önizleme"
-                    preset="eventHero"
+                    preset="eventBanner"
                     onOpen={openImagePreview}
                   />
                   <Button size="small" color="error" onClick={() => setBannerFile(null)}>
@@ -1793,7 +1793,7 @@ export default function EventsPage() {
                   <MediaDualPreview
                     src={existingBannerUrl}
                     alt="Mevcut banner"
-                    preset="eventHero"
+                    preset="eventBanner"
                     onOpen={openImagePreview}
                   />
                   <Button
