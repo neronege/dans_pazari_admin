@@ -52,6 +52,10 @@ export async function setEventFeatured(eventId, isFeatured) {
   await httpClient.patch(endpoints.admin.events.featured(eventId), { isFeatured });
 }
 
+export async function setEventCountdown(eventId, showOnCountdown) {
+  await httpClient.patch(endpoints.admin.events.countdown(eventId), { showOnCountdown });
+}
+
 export async function setEventSortOrder(eventId, sortOrder) {
   await httpClient.patch(endpoints.admin.events.sortOrder(eventId), { sortOrder });
 }
@@ -114,6 +118,18 @@ export async function uploadEventBanner(eventId, file) {
 
 export async function deleteEventBanner(eventId) {
   await httpClient.delete(endpoints.admin.events.banner(eventId));
+}
+
+export async function uploadEventMobileBanner(eventId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await httpClient.post(endpoints.admin.events.bannerMobile(eventId), formData);
+  return response.data;
+}
+
+export async function deleteEventMobileBanner(eventId) {
+  await httpClient.delete(endpoints.admin.events.bannerMobile(eventId));
 }
 
 export async function uploadEventVideo(eventId, file) {

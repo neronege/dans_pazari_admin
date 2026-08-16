@@ -264,6 +264,7 @@ Draft dahil tüm status’ler. Inactive bilet tipleri de görünür.
 | PATCH | `/admin/events/{id}/unpublish` | Yayından kaldır |
 | PATCH | `/admin/events/{id}/cancel` | İptal |
 | PATCH | `/admin/events/{id}/featured` | Body: `{ "isFeatured": true }` |
+| PATCH | `/admin/events/{id}/countdown` | Body: `{ "showOnCountdown": true }` — anasayfa countdown (aynı anda tek etkinlik) |
 | DELETE | `/admin/events/{id}` | Soft-delete |
 | POST | `/admin/events/{id}/photos` | Multipart `Photos[]` — galeriye ekler (jpeg/png/webp/gif, max 8 MB/dosya, max 20). İlk foto → `coverImageUrl` |
 | DELETE | `/admin/events/{id}/photos/{photoId}` | Galeriden tek foto sil |

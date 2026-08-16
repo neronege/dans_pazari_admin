@@ -9,8 +9,10 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -32,6 +34,7 @@ import {
   createTicketType,
   deleteEventBanner,
   deleteEventCover,
+  deleteEventMobileBanner,
   deleteEventPhoto,
   deleteEventSponsor,
   deleteEventSession,
@@ -45,16 +48,20 @@ import {
   updateTicketType,
   uploadEventCover,
   uploadEventBanner,
+  uploadEventMobileBanner,
   uploadEventPhotos,
   uploadEventSponsors,
   uploadEventVideo,
   setEventSortOrder,
+  setEventCountdown,
   unpublishEvent,
   updateEvent
 } from 'modules/events/api/events.service';
 import useEvents from 'modules/events/hooks/useEvents';
 import {
   EVENT_COVER_IMAGE,
+  EVENT_BANNER_IMAGE,
+  EVENT_MOBILE_BANNER_IMAGE,
   EVENT_GALLERY_IMAGE,
   EVENT_SPONSOR_IMAGE,
   validateEventImageFile
@@ -89,6 +96,7 @@ const initialForm = {
   categoryId: '',
   venueId: '',
   sortOrder: 0,
+  showOnCountdown: false,
   sessionId: null,
   startsAtLocal: '',
   endsAtLocal: '',
@@ -254,6 +262,7 @@ export default function EventsPage() {
   const [opsSessions, setOpsSessions] = useState([]);
   const [coverFile, setCoverFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
+  const [mobileBannerFile, setMobileBannerFile] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
@@ -261,6 +270,7 @@ export default function EventsPage() {
   const [existingSponsors, setExistingSponsors] = useState([]);
   const [existingCoverUrl, setExistingCoverUrl] = useState('');
   const [existingBannerUrl, setExistingBannerUrl] = useState('');
+  const [existingMobileBannerUrl, setExistingMobileBannerUrl] = useState('');
   const [mediaPickError, setMediaPickError] = useState('');
   const [mediaWarnings, setMediaWarnings] = useState([]);
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
@@ -299,6 +309,10 @@ export default function EventsPage() {
   }, [organizerOptions, form.organizerPartnerId]);
   const coverPreviewUrl = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : ''), [coverFile]);
   const bannerPreviewUrl = useMemo(() => (bannerFile ? URL.createObjectURL(bannerFile) : ''), [bannerFile]);
+  const mobileBannerPreviewUrl = useMemo(
+    () => (mobileBannerFile ? URL.createObjectURL(mobileBannerFile) : ''),
+    [mobileBannerFile]
+  );
   const galleryPreviewItems = useMemo(
     () => galleryFiles.map((file) => ({ name: file.name, previewUrl: URL.createObjectURL(file) })),
     [galleryFiles]
@@ -323,6 +337,14 @@ export default function EventsPage() {
       }
     };
   }, [bannerPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (mobileBannerPreviewUrl) {
+        URL.revokeObjectURL(mobileBannerPreviewUrl);
+      }
+    };
+  }, [mobileBannerPreviewUrl]);
 
   useEffect(() => {
     return () => {
@@ -365,6 +387,7 @@ export default function EventsPage() {
     setLocaleTab('tr');
     setCoverFile(null);
     setBannerFile(null);
+    setMobileBannerFile(null);
     setVideoFile(null);
     setGalleryFiles([]);
     setExistingPhotos([]);
@@ -372,6 +395,7 @@ export default function EventsPage() {
     setExistingSponsors([]);
     setExistingCoverUrl('');
     setExistingBannerUrl('');
+    setExistingMobileBannerUrl('');
     setActionError('');
     setMediaPickError('');
     setMediaWarnings([]);
@@ -409,6 +433,7 @@ export default function EventsPage() {
         categoryId: detail?.categoryId || '',
         venueId: detail?.venueId || '',
         sortOrder: Number.isFinite(detail?.sortOrder) ? detail.sortOrder : 0,
+        showOnCountdown: Boolean(detail?.showOnCountdown),
         sessionId: primarySession?.id || null,
         startsAtLocal: toDateTimeLocalFromIso(primarySession?.startsAtUtc),
         endsAtLocal: toDateTimeLocalFromIso(primarySession?.endsAtUtc),
@@ -421,8 +446,10 @@ export default function EventsPage() {
       setExistingSponsors(Array.isArray(detail?.sponsors) ? detail.sponsors : []);
       setExistingCoverUrl(coverUrl);
       setExistingBannerUrl(detail?.bannerImageUrl || '');
+      setExistingMobileBannerUrl(detail?.mobileBannerImageUrl || '');
       setCoverFile(null);
       setBannerFile(null);
+      setMobileBannerFile(null);
       setVideoFile(null);
       setGalleryFiles([]);
       setSponsorFiles([]);
@@ -450,6 +477,10 @@ export default function EventsPage() {
 
     if (bannerFile) {
       await uploadEventBanner(eventId, bannerFile);
+    }
+
+    if (mobileBannerFile) {
+      await uploadEventMobileBanner(eventId, mobileBannerFile);
     }
 
     if (videoFile) {
@@ -506,12 +537,12 @@ export default function EventsPage() {
     }
 
     try {
-      const cropped = await cropFile(file, EVENT_COVER_IMAGE);
+      const cropped = await cropFile(file, EVENT_BANNER_IMAGE);
       if (!cropped) {
         return;
       }
 
-      const result = await validatePickedMediaFile(cropped, EVENT_COVER_IMAGE, 'Banner görseli geçersiz.');
+      const result = await validatePickedMediaFile(cropped, EVENT_BANNER_IMAGE, 'Banner görseli geçersiz.');
       if (!result.ok) {
         setMediaPickError(result.error);
         return;
@@ -522,6 +553,38 @@ export default function EventsPage() {
       setBannerFile(cropped);
     } catch (error) {
       setMediaPickError(error?.message || 'Banner görseli doğrulanamadı.');
+    }
+  };
+
+  const onPickMobileBannerForForm = async (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const cropped = await cropFile(file, EVENT_MOBILE_BANNER_IMAGE);
+      if (!cropped) {
+        return;
+      }
+
+      const result = await validatePickedMediaFile(
+        cropped,
+        EVENT_MOBILE_BANNER_IMAGE,
+        'Mobil banner görseli geçersiz.'
+      );
+      if (!result.ok) {
+        setMediaPickError(result.error);
+        return;
+      }
+
+      setMediaPickError('');
+      setMediaWarnings(result.warning ? [result.warning] : []);
+      setMobileBannerFile(cropped);
+    } catch (error) {
+      setMediaPickError(error?.message || 'Mobil banner görseli doğrulanamadı.');
     }
   };
 
@@ -749,10 +812,12 @@ export default function EventsPage() {
       }
 
       await uploadSelectedMedia(targetEventId);
+      await setEventCountdown(targetEventId, Boolean(form.showOnCountdown));
 
       setDialogOpen(false);
       setCoverFile(null);
       setBannerFile(null);
+      setMobileBannerFile(null);
       setVideoFile(null);
       setGalleryFiles([]);
       setSponsorFiles([]);
@@ -760,6 +825,7 @@ export default function EventsPage() {
       setExistingSponsors([]);
       setExistingCoverUrl('');
       setExistingBannerUrl('');
+      setExistingMobileBannerUrl('');
       await refresh();
     } catch (requestError) {
       const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
@@ -793,6 +859,16 @@ export default function EventsPage() {
       } else {
         await publishEvent(event.id);
       }
+      await refresh();
+    } catch (requestError) {
+      setActionError(getRequestErrorMessage(requestError));
+    }
+  };
+
+  const onCountdownToggle = async (event) => {
+    try {
+      setActionError('');
+      await setEventCountdown(event.id, !event.showOnCountdown);
       await refresh();
     } catch (requestError) {
       setActionError(getRequestErrorMessage(requestError));
@@ -919,6 +995,23 @@ export default function EventsPage() {
         await reloadOperations(eventId);
       }
 
+      return true;
+    } catch (requestError) {
+      setActionError(getRequestErrorMessage(requestError));
+      return false;
+    }
+  };
+
+  const onMobileBannerDelete = async (eventId) => {
+    const confirmed = window.confirm('Mobil banner görselini silmek istiyor musunuz?');
+    if (!confirmed) {
+      return false;
+    }
+
+    try {
+      setActionError('');
+      await deleteEventMobileBanner(eventId);
+      await refresh();
       return true;
     } catch (requestError) {
       setActionError(getRequestErrorMessage(requestError));
@@ -1253,13 +1346,14 @@ export default function EventsPage() {
                   <TableCell>Mekan</TableCell>
                   <TableCell>Kapak</TableCell>
                   <TableCell>Banner</TableCell>
+                  <TableCell>Countdown</TableCell>
                   <TableCell align="right">İşlemler</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={9} align="center">
                       Yükleniyor...
                     </TableCell>
                   </TableRow>
@@ -1267,7 +1361,7 @@ export default function EventsPage() {
 
                 {!isLoading && events.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={9} align="center">
                       Gösterilecek etkinlik bulunamadı.
                     </TableCell>
                   </TableRow>
@@ -1336,6 +1430,14 @@ export default function EventsPage() {
                         ) : (
                           '-'
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={Boolean(event.showOnCountdown)}
+                          onChange={() => onCountdownToggle(event)}
+                          size="small"
+                          inputProps={{ 'aria-label': 'Anasayfa countdown' }}
+                        />
                       </TableCell>
                       <TableCell align="right">
                         <Button size="small" onClick={() => openEditDialog(event.id)}>
@@ -1754,17 +1856,22 @@ export default function EventsPage() {
             <Stack sx={{ gap: 1 }}>
               <Typography variant="subtitle2">Banner Görseli (opsiyonel)</Typography>
               <Typography variant="caption" color="text.secondary">
-                Oran sabit (~900×530). Kırpma ile kadraj seçilir; minimum {EVENT_COVER_IMAGE.targetWidth}×
-                {EVENT_COVER_IMAGE.targetHeight}px altı kabul edilmez. Mobil sitede de aynı çerçeve kullanılır.
+                Web anasayfa banner’ı (~900×530). Minimum {EVENT_BANNER_IMAGE.targetWidth}×
+                {EVENT_BANNER_IMAGE.targetHeight}px.
               </Typography>
               <Button variant="outlined" component="label">
-                {bannerFile ? `Seçildi: ${bannerFile.name}` : 'Banner Seç'}
-                <input
-                  type="file"
-                  hidden
-                  accept="image/*"
-                  onChange={onPickBannerForForm}
-                />
+                {bannerFile ? `Seçildi: ${bannerFile.name}` : 'Banner Seç (Web)'}
+                <input type="file" hidden accept="image/*" onChange={onPickBannerForForm} />
+              </Button>
+              <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                Mobil banner (opsiyonel)
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Yüklenirse mobilde bu görsel kullanılır; yoksa web banner’ı gösterilir. Dik çerçeve (~720×1120).
+              </Typography>
+              <Button variant="outlined" component="label">
+                {mobileBannerFile ? `Seçildi: ${mobileBannerFile.name}` : 'Mobil Banner Seç'}
+                <input type="file" hidden accept="image/*" onChange={onPickMobileBannerForForm} />
               </Button>
               {mediaPickError ? <Alert severity="error">{mediaPickError}</Alert> : null}
               {mediaWarnings.map((warning) => (
@@ -1772,46 +1879,59 @@ export default function EventsPage() {
                   {warning}
                 </Alert>
               ))}
-              {bannerPreviewUrl && (
+              {(bannerPreviewUrl ||
+                mobileBannerPreviewUrl ||
+                existingBannerUrl ||
+                existingMobileBannerUrl) && (
                 <Stack sx={{ gap: 1, alignItems: 'flex-start' }}>
                   <MediaDualPreview
-                    src={bannerPreviewUrl}
+                    src={bannerPreviewUrl || existingBannerUrl}
+                    mobileSrc={
+                      mobileBannerPreviewUrl ||
+                      existingMobileBannerUrl ||
+                      bannerPreviewUrl ||
+                      existingBannerUrl
+                    }
                     alt="Banner önizleme"
                     preset="eventBanner"
                     onOpen={openImagePreview}
                   />
-                  <Button size="small" color="error" onClick={() => setBannerFile(null)}>
-                    Sil
-                  </Button>
-                </Stack>
-              )}
-              {editingId && existingBannerUrl && (
-                <Stack sx={{ gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Bu etkinlikte aktif banner mevcut.
-                  </Typography>
-                  <MediaDualPreview
-                    src={existingBannerUrl}
-                    alt="Mevcut banner"
-                    preset="eventBanner"
-                    onOpen={openImagePreview}
-                  />
-                  <Button
-                    size="small"
-                    color="error"
-                    sx={{ alignSelf: 'flex-start' }}
-                    onClick={async () => {
-                      if (!editingId) {
-                        return;
-                      }
-                      const deleted = await onBannerDelete(editingId);
-                      if (deleted) {
-                        setExistingBannerUrl('');
-                      }
-                    }}
-                  >
-                    Sil
-                  </Button>
+                  <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                    {bannerFile ? (
+                      <Button size="small" color="error" onClick={() => setBannerFile(null)}>
+                        Web seçimini kaldır
+                      </Button>
+                    ) : null}
+                    {mobileBannerFile ? (
+                      <Button size="small" color="error" onClick={() => setMobileBannerFile(null)}>
+                        Mobil seçimini kaldır
+                      </Button>
+                    ) : null}
+                    {editingId && existingBannerUrl && !bannerFile ? (
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={async () => {
+                          const deleted = await onBannerDelete(editingId);
+                          if (deleted) setExistingBannerUrl('');
+                        }}
+                      >
+                        Web banner sil
+                      </Button>
+                    ) : null}
+                    {editingId && existingMobileBannerUrl && !mobileBannerFile ? (
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={async () => {
+                          const deleted = await onMobileBannerDelete(editingId);
+                          if (deleted) setExistingMobileBannerUrl('');
+                        }}
+                      >
+                        Mobil banner sil
+                      </Button>
+                    ) : null}
+                  </Stack>
                 </Stack>
               )}
             </Stack>
@@ -1823,6 +1943,21 @@ export default function EventsPage() {
               helperText="Küçük numara listede önce görünür."
               inputProps={{ min: 0 }}
             />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={Boolean(form.showOnCountdown)}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, showOnCountdown: event.target.checked }))
+                  }
+                />
+              }
+              label="Anasayfa countdown bölümünde göster"
+            />
+            <Typography variant="caption" color="text.secondary">
+              Açıkken bu etkinliğin ilk seans tarihine göre countdown gösterilir. Aynı anda yalnızca bir etkinlik seçili
+              olabilir.
+            </Typography>
             <Stack sx={{ gap: 1 }}>
               <TextField
                 label="Video URL (opsiyonel)"

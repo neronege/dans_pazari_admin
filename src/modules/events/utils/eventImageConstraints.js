@@ -5,7 +5,7 @@
  */
 
 export const EVENT_COVER_IMAGE = {
-  label: 'Kapak / Banner',
+  label: 'Kapak',
   targetWidth: 900,
   targetHeight: 530,
   /** 900 / 530 */
@@ -13,6 +13,29 @@ export const EVENT_COVER_IMAGE = {
   /** ±5% */
   aspectMin: (900 / 530) * 0.95,
   aspectMax: (900 / 530) * 1.05,
+  requireExactPixels: false
+};
+
+/** Anasayfa web banner (~900×530). */
+export const EVENT_BANNER_IMAGE = {
+  label: 'Banner (Web)',
+  targetWidth: 900,
+  targetHeight: 530,
+  aspectRatio: 900 / 530,
+  aspectMin: (900 / 530) * 0.95,
+  aspectMax: (900 / 530) * 1.05,
+  requireExactPixels: false
+};
+
+/** Anasayfa mobil banner — web’teki ~72vh telefon çerçevesine yakın dikey oran. */
+export const EVENT_MOBILE_BANNER_IMAGE = {
+  label: 'Mobil banner',
+  targetWidth: 720,
+  targetHeight: 1120,
+  /** ~9:14 (390×608 @ 72vh phone) */
+  aspectRatio: 720 / 1120,
+  aspectMin: (720 / 1120) * 0.9,
+  aspectMax: (720 / 1120) * 1.1,
   requireExactPixels: false
 };
 

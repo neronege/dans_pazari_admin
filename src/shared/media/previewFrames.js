@@ -1,6 +1,5 @@
 /**
  * Web sitesindeki gerçek CSS slot oranları — admin önizlemesi bunlara göre kesilir.
- * Tek dosya yüklenir; web/mobil farkı object-fit: cover kırpmasıyla oluşur.
  */
 
 export const MEDIA_PREVIEW = {
@@ -11,15 +10,14 @@ export const MEDIA_PREVIEW = {
     objectFit: 'cover'
   },
   /**
-   * Anasayfa banner: yüklenen kırpma 900×530.
-   * Web + mobil aynı oranı kullanır (mobil sitede de aynı çerçeve).
+   * Anasayfa banner — web’teki gerçek hero çerçevesi:
+   * desktop ~72vh yatay, mobil telefon ~72vh dikey (≈9/14).
    */
   eventBanner: {
-    web: { label: 'Web · Anasayfa', aspectRatio: '900 / 530', maxWidth: 360 },
-    mobile: { label: 'Mobil · Anasayfa', aspectRatio: '900 / 530', maxWidth: 200 },
+    web: { label: 'Web · Anasayfa', aspectRatio: '20 / 9', maxWidth: 360 },
+    mobile: { label: 'Mobil · Anasayfa', aspectRatio: '9 / 14', maxWidth: 168 },
     objectFit: 'cover'
   },
-  /** Galeri: her yerde 3:2 */
   eventGallery: {
     web: { label: 'Web · Galeri', aspectRatio: '3 / 2', maxWidth: 280 },
     mobile: { label: 'Mobil · Galeri', aspectRatio: '3 / 2', maxWidth: 160 },

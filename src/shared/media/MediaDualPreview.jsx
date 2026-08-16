@@ -42,17 +42,19 @@ function PreviewFrame({ src, alt, label, aspectRatio, maxWidth, objectFit, onCli
 }
 
 /**
- * Aynı görseli web ve mobil slot oranlarında yan yana gösterir.
+ * Aynı görseli (veya ayrı mobil src) web ve mobil slot oranlarında yan yana gösterir.
  * @param {'eventHero'|'eventBanner'|'eventGallery'|'eventSponsor'|'venue'|'blog'|'poll'} preset
+ * @param {string} [mobileSrc] Ayrı mobil görsel; yoksa `src` kullanılır.
  */
 export default function MediaDualPreview({
   src,
+  mobileSrc,
   alt = 'Önizleme',
   preset = 'eventHero',
   onOpen,
   scale = 1
 }) {
-  if (!src) {
+  if (!src && !mobileSrc) {
     return null;
   }
 
@@ -60,40 +62,48 @@ export default function MediaDualPreview({
   const objectFit = config.objectFit || 'cover';
   const webMax = Math.round(config.web.maxWidth * scale);
   const mobileMax = Math.round(config.mobile.maxWidth * scale);
+  const webSrc = src || mobileSrc;
+  const resolvedMobileSrc = mobileSrc || src;
 
-  const handleOpen = onOpen
-    ? () => {
-        onOpen(src, alt);
-      }
-    : undefined;
+  const handleOpen = (url, label) =>
+    onOpen
+      ? () => {
+          onOpen(url, label);
+        }
+      : undefined;
 
   return (
     <Stack sx={{ gap: 1 }}>
       <Typography variant="caption" color="text.secondary">
         Site önizlemesi — web ve mobilde kırpma farkını kontrol edin
+        {mobileSrc ? ' (mobil için alternatif görsel)' : ''}
       </Typography>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         sx={{ gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}
       >
-        <PreviewFrame
-          src={src}
-          alt={`${alt} — web`}
-          label={config.web.label}
-          aspectRatio={config.web.aspectRatio}
-          maxWidth={webMax}
-          objectFit={objectFit}
-          onClick={handleOpen}
-        />
-        <PreviewFrame
-          src={src}
-          alt={`${alt} — mobil`}
-          label={config.mobile.label}
-          aspectRatio={config.mobile.aspectRatio}
-          maxWidth={mobileMax}
-          objectFit={objectFit}
-          onClick={handleOpen}
-        />
+        {webSrc ? (
+          <PreviewFrame
+            src={webSrc}
+            alt={`${alt} — web`}
+            label={config.web.label}
+            aspectRatio={config.web.aspectRatio}
+            maxWidth={webMax}
+            objectFit={objectFit}
+            onClick={handleOpen(webSrc, `${alt} — web`)}
+          />
+        ) : null}
+        {resolvedMobileSrc ? (
+          <PreviewFrame
+            src={resolvedMobileSrc}
+            alt={`${alt} — mobil`}
+            label={config.mobile.label}
+            aspectRatio={config.mobile.aspectRatio}
+            maxWidth={mobileMax}
+            objectFit={objectFit}
+            onClick={handleOpen(resolvedMobileSrc, `${alt} — mobil`)}
+          />
+        ) : null}
       </Stack>
     </Stack>
   );
