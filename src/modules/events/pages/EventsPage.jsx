@@ -865,16 +865,6 @@ export default function EventsPage() {
     }
   };
 
-  const onCountdownToggle = async (event) => {
-    try {
-      setActionError('');
-      await setEventCountdown(event.id, !event.showOnCountdown);
-      await refresh();
-    } catch (requestError) {
-      setActionError(getRequestErrorMessage(requestError));
-    }
-  };
-
   const onMoveSort = async (event, direction) => {
     const index = events.findIndex((item) => item.id === event.id);
     const swapIndex = index + direction;
@@ -1346,14 +1336,13 @@ export default function EventsPage() {
                   <TableCell>Mekan</TableCell>
                   <TableCell>Kapak</TableCell>
                   <TableCell>Banner</TableCell>
-                  <TableCell>Countdown</TableCell>
                   <TableCell align="right">İşlemler</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell colSpan={8} align="center">
                       Yükleniyor...
                     </TableCell>
                   </TableRow>
@@ -1361,7 +1350,7 @@ export default function EventsPage() {
 
                 {!isLoading && events.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell colSpan={8} align="center">
                       Gösterilecek etkinlik bulunamadı.
                     </TableCell>
                   </TableRow>
@@ -1430,14 +1419,6 @@ export default function EventsPage() {
                         ) : (
                           '-'
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={Boolean(event.showOnCountdown)}
-                          onChange={() => onCountdownToggle(event)}
-                          size="small"
-                          inputProps={{ 'aria-label': 'Anasayfa countdown' }}
-                        />
                       </TableCell>
                       <TableCell align="right">
                         <Button size="small" onClick={() => openEditDialog(event.id)}>
