@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -252,8 +252,6 @@ export default function EventsPage() {
   const [opsEventId, setOpsEventId] = useState(null);
   const [opsEventTitle, setOpsEventTitle] = useState('');
   const [opsSessions, setOpsSessions] = useState([]);
-  const [coverTargetEventId, setCoverTargetEventId] = useState(null);
-  const [bannerTargetEventId, setBannerTargetEventId] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
@@ -275,8 +273,6 @@ export default function EventsPage() {
   });
   const [sessionFormErrors, setSessionFormErrors] = useState({});
   const [sessionSaving, setSessionSaving] = useState(false);
-  const fileInputRef = useRef(null);
-  const bannerInputRef = useRef(null);
   const { cropFile, cropFiles, dialog: imageCropDialog } = useImageCrop();
 
   const { events, isLoading, error, refresh } = useEvents({ search, city, status, categoryId });
@@ -886,53 +882,6 @@ export default function EventsPage() {
     }
   };
 
-  const requestCoverUpload = (eventId) => {
-    setCoverTargetEventId(eventId);
-    fileInputRef.current?.click();
-  };
-
-  const requestBannerUpload = (eventId) => {
-    setBannerTargetEventId(eventId);
-    bannerInputRef.current?.click();
-  };
-
-  const onCoverFileChange = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file || !coverTargetEventId) {
-      return;
-    }
-
-    const targetId = coverTargetEventId;
-
-    try {
-      setActionError('');
-      const cropped = await cropFile(file, EVENT_COVER_IMAGE);
-      if (!cropped) {
-        return;
-      }
-
-      const result = await validateEventImageFile(cropped, EVENT_COVER_IMAGE);
-      if (!result.ok) {
-        setActionError(result.error || 'Kapak görseli geçersiz.');
-        return;
-      }
-      if (result.warning) {
-        setActionError(result.warning);
-      }
-      await uploadEventCover(targetId, cropped);
-      await refresh();
-
-      if (opsDialogOpen && opsEventId === targetId) {
-        await reloadOperations(targetId);
-      }
-    } catch (requestError) {
-      setActionError(requestError?.message || getRequestErrorMessage(requestError));
-    } finally {
-      event.target.value = '';
-      setCoverTargetEventId(null);
-    }
-  };
-
   const onCoverDelete = async (eventId) => {
     const confirmed = window.confirm('Etkinlik kapağını silmek istiyor musunuz?');
     if (!confirmed) {
@@ -952,43 +901,6 @@ export default function EventsPage() {
     } catch (requestError) {
       setActionError(getRequestErrorMessage(requestError));
       return false;
-    }
-  };
-
-  const onBannerFileChange = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file || !bannerTargetEventId) {
-      return;
-    }
-
-    const targetId = bannerTargetEventId;
-
-    try {
-      setActionError('');
-      const cropped = await cropFile(file, EVENT_COVER_IMAGE);
-      if (!cropped) {
-        return;
-      }
-
-      const result = await validateEventImageFile(cropped, EVENT_COVER_IMAGE);
-      if (!result.ok) {
-        setActionError(result.error || 'Banner görseli geçersiz.');
-        return;
-      }
-      if (result.warning) {
-        setActionError(result.warning);
-      }
-      await uploadEventBanner(targetId, cropped);
-      await refresh();
-
-      if (opsDialogOpen && opsEventId === targetId) {
-        await reloadOperations(targetId);
-      }
-    } catch (requestError) {
-      setActionError(requestError?.message || getRequestErrorMessage(requestError));
-    } finally {
-      event.target.value = '';
-      setBannerTargetEventId(null);
     }
   };
 
@@ -1284,8 +1196,6 @@ export default function EventsPage() {
   return (
     <>
       {imageCropDialog}
-      <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onCoverFileChange} />
-      <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={onBannerFileChange} />
 
       <MainCard
         title="Etkinlik Yönetimi"
@@ -1433,21 +1343,6 @@ export default function EventsPage() {
                         </Button>
                         <Button size="small" onClick={() => onPublishToggle(event)}>
                           {normalizeEventStatus(event.status) === 'Published' ? 'Yayından Kaldır' : 'Yayınla'}
-                        </Button>
-                        <Button size="small" onClick={() => requestCoverUpload(event.id)}>
-                          Kapak Yükle
-                        </Button>
-                        <Button size="small" onClick={() => onCoverDelete(event.id)}>
-                          Kapak Sil
-                        </Button>
-                        <Button size="small" onClick={() => requestBannerUpload(event.id)}>
-                          Banner Yükle
-                        </Button>
-                        <Button size="small" onClick={() => onBannerDelete(event.id)}>
-                          Banner Sil
-                        </Button>
-                        <Button size="small" onClick={() => openOperations(event.id)}>
-                          Seanslar
                         </Button>
                         <Button size="small" color="secondary" onClick={() => onStartBulkRefunds(event.id)}>
                           Toplu İade
@@ -1664,10 +1559,15 @@ export default function EventsPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, doorOpensNote: event.target.value }))}
               helperText={
                 editingId
-                  ? 'Ana seans güncellenir. Ek seanslar için listeden Seanslar butonunu kullanın.'
+                  ? 'Ana seans güncellenir. Ek seanslar ve bilet tipleri için aşağıdaki butonu kullanın.'
                   : 'Yerel saat diliminize göre seçin; sunucuya UTC olarak kaydedilir.'
               }
             />
+            {editingId ? (
+              <Button variant="outlined" onClick={() => openOperations(editingId)}>
+                Seanslar ve Bilet Tipleri
+              </Button>
+            ) : null}
             <Stack sx={{ gap: 1 }}>
               <Typography variant="subtitle2">Kapak Görseli (opsiyonel)</Typography>
               <Typography variant="caption" color="text.secondary">
@@ -2038,11 +1938,6 @@ export default function EventsPage() {
               <Button variant="contained" onClick={() => openSessionDialog()}>
                 Yeni Seans
               </Button>
-              {opsEventId && (
-                <Button variant="outlined" onClick={() => requestCoverUpload(opsEventId)}>
-                  Kapak Yükle
-                </Button>
-              )}
             </Stack>
             <Divider />
 
