@@ -3,6 +3,7 @@
  * Önerilen oran ~16:9 (900×506).
  */
 export const POLL_IMAGE = {
+  label: 'Anket görseli',
   targetWidth: 900,
   targetHeight: 506,
   aspectRatio: 900 / 506,
@@ -44,23 +45,19 @@ export function validatePollImageDimensions(width, height) {
     };
   }
 
-  if (ratio < POLL_IMAGE.aspectMin || ratio > POLL_IMAGE.aspectMax) {
+  // Oran kırpma ile sabitlenir; kabul/red yalnızca minimum çözünürlüğe bakılır.
+  if (width < POLL_IMAGE.targetWidth || height < POLL_IMAGE.targetHeight) {
     return {
       ok: false,
-      error: `Oran uygun değil (${width}×${height}, oran ${ratio.toFixed(2)}). Beklenen ~16:9 (ör. ${POLL_IMAGE.targetWidth}×${POLL_IMAGE.targetHeight}).`,
+      error: `Görsel çözünürlüğü yetersiz (${width}×${height}px). Minimum ${POLL_IMAGE.targetWidth}×${POLL_IMAGE.targetHeight}px gerekli; daha yüksek çözünürlüklü bir görsel seçin.`,
       width,
       height,
       ratio
     };
   }
 
-  const lowRes = width < POLL_IMAGE.targetWidth || height < POLL_IMAGE.targetHeight;
-
   return {
     ok: true,
-    warning: lowRes
-      ? `Düşük çözünürlük: ${width}×${height}px. Önerilen minimum ${POLL_IMAGE.targetWidth}×${POLL_IMAGE.targetHeight}px.`
-      : undefined,
     width,
     height,
     ratio

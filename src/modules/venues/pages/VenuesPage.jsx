@@ -36,7 +36,7 @@ import {
 import { validateVenueImageFile, VENUE_IMAGE } from 'modules/venues/utils/venueImageConstraints';
 import useVenueGoogleMap from 'modules/venues/hooks/useVenueGoogleMap';
 import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
-import { MediaDualPreview, MediaLightbox } from 'shared/media';
+import { MediaDualPreview, MediaLightbox, useImageCrop } from 'shared/media';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -84,6 +84,7 @@ export default function VenuesPage() {
   const [photoWarnings, setPhotoWarnings] = useState([]);
   const [videoFile, setVideoFile] = useState(null);
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
+  const { cropFiles, dialog: imageCropDialog } = useImageCrop();
 
   const selectedPhotoPreviews = useMemo(
     () => selectedPhotos.map((file) => ({ name: file.name, url: URL.createObjectURL(file) })),
@@ -206,11 +207,29 @@ export default function VenuesPage() {
       }
     }
 
+    const croppedFiles = [];
+    let cropErrors = [];
+    try {
+      const cropResult = await cropFiles(nextFiles, VENUE_IMAGE);
+      croppedFiles.push(...cropResult.files);
+      cropErrors = cropResult.errors || [];
+    } catch (error) {
+      setActionError(error?.message || 'Görseller işlenemedi.');
+      setPhotoWarnings([]);
+      return;
+    }
+
+    if (!croppedFiles.length) {
+      setActionError(cropErrors.join(' ') || 'Fotoğraf seçilmedi.');
+      setPhotoWarnings([]);
+      return;
+    }
+
     const accepted = [];
     const warnings = [];
-    const rejects = [];
+    const rejects = [...cropErrors];
 
-    for (const file of nextFiles) {
+    for (const file of croppedFiles) {
       try {
         const result = await validateVenueImageFile(file);
         if (!result.ok) {
@@ -410,6 +429,7 @@ export default function VenuesPage() {
 
   return (
     <>
+      {imageCropDialog}
       <MainCard
         title="Mekan Yönetimi"
         secondary={

@@ -37,7 +37,7 @@ import {
 import usePolls from 'modules/polls/hooks/usePolls';
 import { POLL_IMAGE, validatePollImageFile } from 'modules/polls/utils/pollImageConstraints';
 import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
-import { MediaDualPreview, MediaLightbox } from 'shared/media';
+import { MediaDualPreview, MediaLightbox, useImageCrop } from 'shared/media';
 import { clearFieldError, getFieldError } from 'shared/ui/fieldErrors';
 
 const CUSTOM_OPTION_PLACEHOLDER = 'Seçenek sunan-seçenek';
@@ -109,6 +109,7 @@ export default function PollsPage() {
   const [existingImageUrl, setExistingImageUrl] = useState('');
   const [imageWarning, setImageWarning] = useState('');
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
+  const { cropFile, dialog: imageCropDialog } = useImageCrop();
 
   const imagePreviewUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : ''), [imageFile]);
 
@@ -182,16 +183,19 @@ export default function PollsPage() {
     if (!file) return;
 
     try {
-      const result = await validatePollImageFile(file);
+      const cropped = await cropFile(file, POLL_IMAGE);
+      if (!cropped) return;
+
+      const result = await validatePollImageFile(cropped);
       if (!result.ok) {
         setActionError(result.error || 'Görsel geçersiz.');
         return;
       }
       setActionError('');
       setImageWarning(result.warning || '');
-      setImageFile(file);
-    } catch {
-      setActionError('Görsel okunamadı.');
+      setImageFile(cropped);
+    } catch (error) {
+      setActionError(error?.message || 'Görsel okunamadı.');
     }
   };
 
@@ -374,6 +378,7 @@ export default function PollsPage() {
 
   return (
     <>
+      {imageCropDialog}
       <MainCard
         title="Anketler"
         secondary={

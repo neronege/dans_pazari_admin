@@ -3,6 +3,7 @@
  * Admin uploads must match this aspect ratio.
  */
 export const BLOG_IMAGE = {
+  label: 'Blog görseli',
   targetWidth: 900,
   targetHeight: 500,
   /** 900 / 500 */
@@ -35,7 +36,7 @@ export function readImageDimensions(file) {
 }
 
 /**
- * @returns {{ ok: boolean, error?: string, warning?: string, width: number, height: number, ratio: number }}
+ * @returns {{ ok: boolean, error?: string, width: number, height: number, ratio: number }}
  */
 export function validateBlogImageDimensions(width, height) {
   const ratio = height > 0 ? width / height : 0;
@@ -50,24 +51,19 @@ export function validateBlogImageDimensions(width, height) {
     };
   }
 
-  if (ratio < BLOG_IMAGE.aspectMin || ratio > BLOG_IMAGE.aspectMax) {
+  // Oran kırpma ile sabitlenir; kabul/red yalnızca minimum çözünürlüğe bakılır.
+  if (width < BLOG_IMAGE.targetWidth || height < BLOG_IMAGE.targetHeight) {
     return {
       ok: false,
-      error: `Oran uygun değil (${width}×${height}, oran ${ratio.toFixed(2)}). Beklenen ~9:5 (ör. ${BLOG_IMAGE.targetWidth}×${BLOG_IMAGE.targetHeight}).`,
+      error: `Görsel çözünürlüğü yetersiz (${width}×${height}px). Minimum ${BLOG_IMAGE.targetWidth}×${BLOG_IMAGE.targetHeight}px gerekli; daha yüksek çözünürlüklü bir görsel seçin.`,
       width,
       height,
       ratio
     };
   }
 
-  const lowRes =
-    width < BLOG_IMAGE.targetWidth || height < BLOG_IMAGE.targetHeight;
-
   return {
     ok: true,
-    warning: lowRes
-      ? `Düşük çözünürlük: ${width}×${height}px. Önerilen minimum ${BLOG_IMAGE.targetWidth}×${BLOG_IMAGE.targetHeight}px; web’de bulanık görünebilir.`
-      : undefined,
     width,
     height,
     ratio

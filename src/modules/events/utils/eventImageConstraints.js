@@ -61,7 +61,7 @@ export function readImageDimensions(file) {
 
 /**
  * @param {typeof EVENT_COVER_IMAGE} spec
- * @returns {{ ok: boolean, error?: string, warning?: string, width: number, height: number, ratio: number }}
+ * @returns {{ ok: boolean, error?: string, width: number, height: number, ratio: number }}
  */
 export function validateEventImageDimensions(width, height, spec) {
   const ratio = height > 0 ? width / height : 0;
@@ -80,7 +80,7 @@ export function validateEventImageDimensions(width, height, spec) {
     if (width !== spec.targetWidth || height !== spec.targetHeight) {
       return {
         ok: false,
-        error: `Sponsor logosu tam ${spec.targetWidth}×${spec.targetHeight}px olmalıdır (seçilen: ${width}×${height}px). Mock brand ölçüleriyle birebir olmalı.`,
+        error: `Sponsor logosu tam ${spec.targetWidth}×${spec.targetHeight}px olmalıdır (seçilen: ${width}×${height}px).`,
         width,
         height,
         ratio
@@ -95,23 +95,19 @@ export function validateEventImageDimensions(width, height, spec) {
     };
   }
 
-  if (ratio < spec.aspectMin || ratio > spec.aspectMax) {
+  // Oran kırpma ile sabitlenir; kabul/red yalnızca minimum çözünürlüğe bakılır.
+  if (width < spec.targetWidth || height < spec.targetHeight) {
     return {
       ok: false,
-      error: `Oran uygun değil (${width}×${height}, oran ${ratio.toFixed(2)}). Beklenen ~${spec.targetWidth}×${spec.targetHeight}px.`,
+      error: `Görsel çözünürlüğü yetersiz (${width}×${height}px). Minimum ${spec.targetWidth}×${spec.targetHeight}px gerekli; daha yüksek çözünürlüklü bir görsel seçin.`,
       width,
       height,
       ratio
     };
   }
 
-  const lowRes = width < spec.targetWidth || height < spec.targetHeight;
-
   return {
     ok: true,
-    warning: lowRes
-      ? `Düşük çözünürlük: ${width}×${height}px. Önerilen minimum ${spec.targetWidth}×${spec.targetHeight}px; web’de bulanık görünebilir.`
-      : undefined,
     width,
     height,
     ratio

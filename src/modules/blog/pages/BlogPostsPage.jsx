@@ -42,7 +42,7 @@ import {
   validateBlogImageFile
 } from 'modules/blog/utils/blogImageConstraints';
 import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
-import { MediaDualPreview, MediaLightbox } from 'shared/media';
+import { MediaDualPreview, MediaLightbox, useImageCrop } from 'shared/media';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -98,6 +98,7 @@ export default function BlogPostsPage() {
   const [photoWarnings, setPhotoWarnings] = useState([]);
   const [photoPickError, setPhotoPickError] = useState('');
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
+  const { cropFiles, dialog: imageCropDialog } = useImageCrop();
 
   const { posts, totalCount, categories, tags, isLoading, error, refresh, refreshTaxonomy } = useBlogPosts({
     page,
@@ -199,11 +200,28 @@ export default function BlogPostsPage() {
     setPhotoPickError('');
     const room = Math.max(0, MAX_PHOTOS - existingPhotos.length - pendingFiles.length);
     const selected = files.slice(0, room);
+
+    let croppedFiles = [];
+    let cropErrors = [];
+    try {
+      const cropResult = await cropFiles(selected, BLOG_IMAGE);
+      croppedFiles = cropResult.files;
+      cropErrors = cropResult.errors || [];
+    } catch (error) {
+      setPhotoPickError(error?.message || 'Görseller işlenemedi.');
+      return;
+    }
+
+    if (!croppedFiles.length) {
+      setPhotoPickError(cropErrors.join(' ') || 'Görsel seçilmedi.');
+      return;
+    }
+
     const accepted = [];
     const warnings = [];
-    const rejects = [];
+    const rejects = [...cropErrors];
 
-    for (const file of selected) {
+    for (const file of croppedFiles) {
       try {
         const result = await validateBlogImageFile(file);
         if (!result.ok) {
@@ -437,6 +455,7 @@ export default function BlogPostsPage() {
 
   return (
     <>
+      {imageCropDialog}
       <MainCard title="Blog Yazıları">
         <Stack sx={{ gap: 2 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2 }}>

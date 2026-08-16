@@ -23,7 +23,7 @@ import MainCard from 'components/MainCard';
 import { getCategories } from 'modules/categories/api/categories.service';
 import useVenues from 'modules/venues/hooks/useVenues';
 import { getPartners, PARTNER_KIND } from 'modules/partners/api/partners.service';
-import { MediaDualPreview, MediaLightbox } from 'shared/media';
+import { MediaDualPreview, MediaLightbox, useImageCrop } from 'shared/media';
 import {
   cancelEventSession,
   cancelEvent,
@@ -277,6 +277,7 @@ export default function EventsPage() {
   const [sessionSaving, setSessionSaving] = useState(false);
   const fileInputRef = useRef(null);
   const bannerInputRef = useRef(null);
+  const { cropFile, cropFiles, dialog: imageCropDialog } = useImageCrop();
 
   const { events, isLoading, error, refresh } = useEvents({ search, city, status, categoryId });
   const { venues } = useVenues({});
@@ -481,7 +482,12 @@ export default function EventsPage() {
     }
 
     try {
-      const result = await validatePickedMediaFile(file, EVENT_COVER_IMAGE, 'Kapak görseli geçersiz.');
+      const cropped = await cropFile(file, EVENT_COVER_IMAGE);
+      if (!cropped) {
+        return;
+      }
+
+      const result = await validatePickedMediaFile(cropped, EVENT_COVER_IMAGE, 'Kapak görseli geçersiz.');
       if (!result.ok) {
         setMediaPickError(result.error);
         return;
@@ -489,9 +495,9 @@ export default function EventsPage() {
 
       setMediaPickError('');
       setMediaWarnings(result.warning ? [result.warning] : []);
-      setCoverFile(file);
-    } catch {
-      setMediaPickError('Kapak görseli doğrulanamadı.');
+      setCoverFile(cropped);
+    } catch (error) {
+      setMediaPickError(error?.message || 'Kapak görseli doğrulanamadı.');
     }
   };
 
@@ -504,7 +510,12 @@ export default function EventsPage() {
     }
 
     try {
-      const result = await validatePickedMediaFile(file, EVENT_COVER_IMAGE, 'Banner görseli geçersiz.');
+      const cropped = await cropFile(file, EVENT_COVER_IMAGE);
+      if (!cropped) {
+        return;
+      }
+
+      const result = await validatePickedMediaFile(cropped, EVENT_COVER_IMAGE, 'Banner görseli geçersiz.');
       if (!result.ok) {
         setMediaPickError(result.error);
         return;
@@ -512,9 +523,9 @@ export default function EventsPage() {
 
       setMediaPickError('');
       setMediaWarnings(result.warning ? [result.warning] : []);
-      setBannerFile(file);
-    } catch {
-      setMediaPickError('Banner görseli doğrulanamadı.');
+      setBannerFile(cropped);
+    } catch (error) {
+      setMediaPickError(error?.message || 'Banner görseli doğrulanamadı.');
     }
   };
 
@@ -526,11 +537,28 @@ export default function EventsPage() {
       return;
     }
 
+    let croppedFiles = [];
+    let cropErrors = [];
+    try {
+      const cropResult = await cropFiles(files, EVENT_GALLERY_IMAGE);
+      croppedFiles = cropResult.files;
+      cropErrors = cropResult.errors || [];
+    } catch (error) {
+      setMediaPickError(error?.message || 'Galeri görselleri işlenemedi.');
+      setMediaWarnings([]);
+      return;
+    }
+
+    if (!croppedFiles.length) {
+      setMediaPickError(cropErrors.join(' ') || 'Galeri görseli seçilmedi.');
+      return;
+    }
+
     const accepted = [];
     const warnings = [];
-    const rejects = [];
+    const rejects = [...cropErrors];
 
-    for (const file of files) {
+    for (const file of croppedFiles) {
       try {
         const result = await validatePickedMediaFile(file, EVENT_GALLERY_IMAGE, 'Galeri görseli geçersiz.');
         if (!result.ok) {
@@ -566,10 +594,27 @@ export default function EventsPage() {
       return;
     }
 
-    const accepted = [];
-    const rejects = [];
+    let croppedFiles = [];
+    let cropErrors = [];
+    try {
+      const cropResult = await cropFiles(files, EVENT_SPONSOR_IMAGE);
+      croppedFiles = cropResult.files;
+      cropErrors = cropResult.errors || [];
+    } catch (error) {
+      setMediaPickError(error?.message || 'Sponsor görselleri işlenemedi.');
+      setMediaWarnings([]);
+      return;
+    }
 
-    for (const file of files) {
+    if (!croppedFiles.length) {
+      setMediaPickError(cropErrors.join(' ') || 'Sponsor görseli seçilmedi.');
+      return;
+    }
+
+    const accepted = [];
+    const rejects = [...cropErrors];
+
+    for (const file of croppedFiles) {
       try {
         const result = await validatePickedMediaFile(
           file,
@@ -857,9 +902,16 @@ export default function EventsPage() {
       return;
     }
 
+    const targetId = coverTargetEventId;
+
     try {
       setActionError('');
-      const result = await validateEventImageFile(file, EVENT_COVER_IMAGE);
+      const cropped = await cropFile(file, EVENT_COVER_IMAGE);
+      if (!cropped) {
+        return;
+      }
+
+      const result = await validateEventImageFile(cropped, EVENT_COVER_IMAGE);
       if (!result.ok) {
         setActionError(result.error || 'Kapak görseli geçersiz.');
         return;
@@ -867,14 +919,14 @@ export default function EventsPage() {
       if (result.warning) {
         setActionError(result.warning);
       }
-      await uploadEventCover(coverTargetEventId, file);
+      await uploadEventCover(targetId, cropped);
       await refresh();
 
-      if (opsDialogOpen && opsEventId === coverTargetEventId) {
-        await reloadOperations(coverTargetEventId);
+      if (opsDialogOpen && opsEventId === targetId) {
+        await reloadOperations(targetId);
       }
     } catch (requestError) {
-      setActionError(getRequestErrorMessage(requestError));
+      setActionError(requestError?.message || getRequestErrorMessage(requestError));
     } finally {
       event.target.value = '';
       setCoverTargetEventId(null);
@@ -909,9 +961,16 @@ export default function EventsPage() {
       return;
     }
 
+    const targetId = bannerTargetEventId;
+
     try {
       setActionError('');
-      const result = await validateEventImageFile(file, EVENT_COVER_IMAGE);
+      const cropped = await cropFile(file, EVENT_COVER_IMAGE);
+      if (!cropped) {
+        return;
+      }
+
+      const result = await validateEventImageFile(cropped, EVENT_COVER_IMAGE);
       if (!result.ok) {
         setActionError(result.error || 'Banner görseli geçersiz.');
         return;
@@ -919,14 +978,14 @@ export default function EventsPage() {
       if (result.warning) {
         setActionError(result.warning);
       }
-      await uploadEventBanner(bannerTargetEventId, file);
+      await uploadEventBanner(targetId, cropped);
       await refresh();
 
-      if (opsDialogOpen && opsEventId === bannerTargetEventId) {
-        await reloadOperations(bannerTargetEventId);
+      if (opsDialogOpen && opsEventId === targetId) {
+        await reloadOperations(targetId);
       }
     } catch (requestError) {
-      setActionError(getRequestErrorMessage(requestError));
+      setActionError(requestError?.message || getRequestErrorMessage(requestError));
     } finally {
       event.target.value = '';
       setBannerTargetEventId(null);
@@ -1224,6 +1283,7 @@ export default function EventsPage() {
 
   return (
     <>
+      {imageCropDialog}
       <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onCoverFileChange} />
       <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={onBannerFileChange} />
 
@@ -1610,6 +1670,10 @@ export default function EventsPage() {
             />
             <Stack sx={{ gap: 1 }}>
               <Typography variant="subtitle2">Kapak Görseli (opsiyonel)</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Oran sabit (~900×530). Kırpma ile kadraj seçilir; minimum {EVENT_COVER_IMAGE.targetWidth}×
+                {EVENT_COVER_IMAGE.targetHeight}px altı kabul edilmez.
+              </Typography>
               <Button variant="outlined" component="label">
                 {coverFile ? `Seçildi: ${coverFile.name}` : 'Kapak Seç'}
                 <input
@@ -1789,6 +1853,10 @@ export default function EventsPage() {
             </Stack>
             <Stack sx={{ gap: 1 }}>
               <Typography variant="subtitle2">Banner Görseli (opsiyonel)</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Oran sabit (~900×530). Kırpma ile kadraj seçilir; minimum {EVENT_COVER_IMAGE.targetWidth}×
+                {EVENT_COVER_IMAGE.targetHeight}px altı kabul edilmez.
+              </Typography>
               <Button variant="outlined" component="label">
                 {bannerFile ? `Seçildi: ${bannerFile.name}` : 'Banner Seç'}
                 <input

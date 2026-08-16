@@ -1,12 +1,12 @@
 /**
  * Venue gallery mock slot: 600x400 (3:2).
- * Minimum is accepted as guidance; higher resolutions are accepted when ratio is compatible.
+ * Aspect is enforced by crop UI; uploads below minimum pixels are rejected.
  */
 export const VENUE_IMAGE = {
+  label: 'Mekan fotoğrafı',
   targetWidth: 600,
   targetHeight: 400,
   aspectRatio: 1.5,
-  /** +/-5% */
   aspectMin: 1.5 * 0.95,
   aspectMax: 1.5 * 1.05
 };
@@ -25,7 +25,7 @@ export function readImageDimensions(file) {
 
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('Gorsel okunamadi.'));
+      reject(new Error('Görsel okunamadı.'));
     };
 
     image.src = url;
@@ -38,30 +38,25 @@ export function validateVenueImageDimensions(width, height) {
   if (!width || !height) {
     return {
       ok: false,
-      error: 'Gorsel boyutlari okunamadi.',
+      error: 'Görsel boyutları okunamadı.',
       width: 0,
       height: 0,
       ratio: 0
     };
   }
 
-  if (ratio < VENUE_IMAGE.aspectMin || ratio > VENUE_IMAGE.aspectMax) {
+  if (width < VENUE_IMAGE.targetWidth || height < VENUE_IMAGE.targetHeight) {
     return {
       ok: false,
-      error: `Oran uygun degil (${width}x${height}, oran ${ratio.toFixed(2)}). Beklenen ~3:2 (or. ${VENUE_IMAGE.targetWidth}x${VENUE_IMAGE.targetHeight}).`,
+      error: `Görsel çözünürlüğü yetersiz (${width}×${height}px). Minimum ${VENUE_IMAGE.targetWidth}×${VENUE_IMAGE.targetHeight}px gerekli; daha yüksek çözünürlüklü bir görsel seçin.`,
       width,
       height,
       ratio
     };
   }
 
-  const lowRes = width < VENUE_IMAGE.targetWidth || height < VENUE_IMAGE.targetHeight;
-
   return {
     ok: true,
-    warning: lowRes
-      ? `Dusuk cozunurluk: ${width}x${height}px. Onerilen minimum ${VENUE_IMAGE.targetWidth}x${VENUE_IMAGE.targetHeight}px; webde bulanik gorunebilir.`
-      : undefined,
     width,
     height,
     ratio
