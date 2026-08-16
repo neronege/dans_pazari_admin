@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -42,6 +42,7 @@ import {
   validateBlogImageFile
 } from 'modules/blog/utils/blogImageConstraints';
 import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
+import { MediaDualPreview, MediaLightbox } from 'shared/media';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -96,6 +97,7 @@ export default function BlogPostsPage() {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [photoWarnings, setPhotoWarnings] = useState([]);
   const [photoPickError, setPhotoPickError] = useState('');
+  const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
 
   const { posts, totalCount, categories, tags, isLoading, error, refresh, refreshTaxonomy } = useBlogPosts({
     page,
@@ -117,6 +119,21 @@ export default function BlogPostsPage() {
       })),
     [pendingFiles]
   );
+
+  useEffect(() => {
+    return () => {
+      pendingPreviews.forEach((item) => URL.revokeObjectURL(item.url));
+    };
+  }, [pendingPreviews]);
+
+  const openImagePreview = (url, title) => {
+    if (!url) return;
+    setImagePreview({ open: true, url, title: title || 'Görsel Önizleme' });
+  };
+
+  const closeImagePreview = () => {
+    setImagePreview({ open: false, url: '', title: '' });
+  };
 
   const openCreate = async () => {
     await refreshTaxonomy();
@@ -774,22 +791,16 @@ export default function BlogPostsPage() {
               )}
 
               {existingPhotos.length > 0 && (
-                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                <Stack sx={{ gap: 2 }}>
                   {existingPhotos.map((photo) => (
-                    <Stack key={photo.id} sx={{ gap: 0.5, alignItems: 'flex-start' }}>
-                      <Box
-                        component="img"
+                    <Stack key={photo.id} sx={{ gap: 1 }}>
+                      <MediaDualPreview
                         src={photo.imageUrl}
                         alt={photo.imageKey || photo.id}
-                        sx={{
-                          width: 144,
-                          height: 80,
-                          objectFit: 'cover',
-                          borderRadius: 1,
-                          border: (theme) => `1px solid ${theme.palette.divider}`
-                        }}
+                        preset="blog"
+                        onOpen={openImagePreview}
                       />
-                      <Button size="small" color="error" onClick={() => onDeleteExistingPhoto(photo.id)}>
+                      <Button size="small" color="error" sx={{ alignSelf: 'flex-start' }} onClick={() => onDeleteExistingPhoto(photo.id)}>
                         Sil
                       </Button>
                     </Stack>
@@ -798,22 +809,16 @@ export default function BlogPostsPage() {
               )}
 
               {pendingPreviews.length > 0 && (
-                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                <Stack sx={{ gap: 2 }}>
                   {pendingPreviews.map((preview, index) => (
-                    <Stack key={`${preview.name}-${index}`} sx={{ gap: 0.5, alignItems: 'flex-start' }}>
-                      <Box
-                        component="img"
+                    <Stack key={`${preview.name}-${index}`} sx={{ gap: 1 }}>
+                      <MediaDualPreview
                         src={preview.url}
                         alt={preview.name}
-                        sx={{
-                          width: 144,
-                          height: 80,
-                          objectFit: 'cover',
-                          borderRadius: 1,
-                          border: (theme) => `1px solid ${theme.palette.divider}`
-                        }}
+                        preset="blog"
+                        onOpen={openImagePreview}
                       />
-                      <Button size="small" onClick={() => removePendingFile(index)}>
+                      <Button size="small" sx={{ alignSelf: 'flex-start' }} onClick={() => removePendingFile(index)}>
                         Kaldır
                       </Button>
                     </Stack>
@@ -837,6 +842,13 @@ export default function BlogPostsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <MediaLightbox
+        open={imagePreview.open}
+        url={imagePreview.url}
+        title={imagePreview.title}
+        onClose={closeImagePreview}
+      />
     </>
   );
 }

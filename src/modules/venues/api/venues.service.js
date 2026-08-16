@@ -89,6 +89,18 @@ export async function deleteVenuePhoto(venueId, photoId) {
   await httpClient.delete(endpoints.admin.venues.photoDetail(venueId, photoId));
 }
 
+export async function uploadVenueVideo(venueId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await httpClient.post(endpoints.admin.venues.video(venueId), formData);
+  return response.data;
+}
+
+export async function deleteVenueVideo(venueId) {
+  const response = await httpClient.delete(endpoints.admin.venues.video(venueId));
+  return response.data;
+}
+
 export async function updateVenueActive(venueId, isActive) {
   await httpClient.patch(endpoints.admin.venues.active(venueId), { isActive });
 }

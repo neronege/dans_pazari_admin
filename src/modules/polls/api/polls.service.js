@@ -50,3 +50,15 @@ export async function setPollHomepage(id, showOnHomepage) {
   const response = await httpClient.patch(endpoints.admin.polls.homepage(id), { showOnHomepage });
   return response.data;
 }
+
+export async function uploadPollImage(id, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await httpClient.post(endpoints.admin.polls.image(id), formData);
+  return response.data;
+}
+
+export async function deletePollImage(id) {
+  const response = await httpClient.delete(endpoints.admin.polls.image(id));
+  return response.data;
+}

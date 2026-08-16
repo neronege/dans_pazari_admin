@@ -29,7 +29,8 @@ export const endpoints = {
       detail: (id) => `/admin/venues/${id}`,
       active: (id) => `/admin/venues/${id}/active`,
       photos: (id) => `/admin/venues/${id}/photos`,
-      photoDetail: (id, photoId) => `/admin/venues/${id}/photos/${photoId}`
+      photoDetail: (id, photoId) => `/admin/venues/${id}/photos/${photoId}`,
+      video: (id) => `/admin/venues/${id}/video`
     },
     events: {
       list: '/admin/events',
@@ -45,6 +46,7 @@ export const endpoints = {
       sponsors: (id) => `/admin/events/${id}/sponsors`,
       sponsorDetail: (id, sponsorId) => `/admin/events/${id}/sponsors/${sponsorId}`,
       banner: (id) => `/admin/events/${id}/banner`,
+      video: (id) => `/admin/events/${id}/video`,
       sessions: (eventId) => `/admin/events/${eventId}/sessions`,
       sessionDetail: (eventId, sessionId) => `/admin/events/${eventId}/sessions/${sessionId}`,
       sessionCancel: (eventId, sessionId) => `/admin/events/${eventId}/sessions/${sessionId}/cancel`,
@@ -108,7 +110,8 @@ export const endpoints = {
       detail: (id) => `/admin/polls/${id}`,
       publish: (id) => `/admin/polls/${id}/publish`,
       unpublish: (id) => `/admin/polls/${id}/unpublish`,
-      homepage: (id) => `/admin/polls/${id}/homepage`
+      homepage: (id) => `/admin/polls/${id}/homepage`,
+      image: (id) => `/admin/polls/${id}/image`
     },
     partners: {
       list: '/admin/partners',

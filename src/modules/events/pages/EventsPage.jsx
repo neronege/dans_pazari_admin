@@ -23,6 +23,7 @@ import MainCard from 'components/MainCard';
 import { getCategories } from 'modules/categories/api/categories.service';
 import useVenues from 'modules/venues/hooks/useVenues';
 import { getPartners, PARTNER_KIND } from 'modules/partners/api/partners.service';
+import { MediaDualPreview, MediaLightbox } from 'shared/media';
 import {
   cancelEventSession,
   cancelEvent,
@@ -35,6 +36,7 @@ import {
   deleteEventSponsor,
   deleteEventSession,
   deleteEvent,
+  deleteEventVideo,
   deleteTicketType,
   getEventDetail,
   publishEvent,
@@ -45,6 +47,7 @@ import {
   uploadEventBanner,
   uploadEventPhotos,
   uploadEventSponsors,
+  uploadEventVideo,
   setEventSortOrder,
   unpublishEvent,
   updateEvent
@@ -253,6 +256,7 @@ export default function EventsPage() {
   const [bannerTargetEventId, setBannerTargetEventId] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [sponsorFiles, setSponsorFiles] = useState([]);
@@ -364,6 +368,7 @@ export default function EventsPage() {
     setLocaleTab('tr');
     setCoverFile(null);
     setBannerFile(null);
+    setVideoFile(null);
     setGalleryFiles([]);
     setExistingPhotos([]);
     setSponsorFiles([]);
@@ -421,6 +426,7 @@ export default function EventsPage() {
       setExistingBannerUrl(detail?.bannerImageUrl || '');
       setCoverFile(null);
       setBannerFile(null);
+      setVideoFile(null);
       setGalleryFiles([]);
       setSponsorFiles([]);
       setMediaPickError('');
@@ -447,6 +453,10 @@ export default function EventsPage() {
 
     if (bannerFile) {
       await uploadEventBanner(eventId, bannerFile);
+    }
+
+    if (videoFile) {
+      await uploadEventVideo(eventId, videoFile);
     }
   };
 
@@ -702,6 +712,7 @@ export default function EventsPage() {
       setDialogOpen(false);
       setCoverFile(null);
       setBannerFile(null);
+      setVideoFile(null);
       setGalleryFiles([]);
       setSponsorFiles([]);
       setExistingPhotos([]);
@@ -1609,20 +1620,12 @@ export default function EventsPage() {
                 />
               </Button>
               {coverPreviewUrl && (
-                <Stack sx={{ gap: 0.5, alignItems: 'flex-start' }}>
-                  <Box
-                    component="img"
+                <Stack sx={{ gap: 1, alignItems: 'flex-start' }}>
+                  <MediaDualPreview
                     src={coverPreviewUrl}
                     alt="Kapak önizleme"
-                    onClick={() => openImagePreview(coverPreviewUrl, 'Kapak Onizleme')}
-                    sx={{
-                      width: 96,
-                      height: 96,
-                      objectFit: 'cover',
-                      borderRadius: 1,
-                      border: (theme) => `1px solid ${theme.palette.divider}`,
-                      cursor: 'zoom-in'
-                    }}
+                    preset="eventHero"
+                    onOpen={openImagePreview}
                   />
                   <Button size="small" color="error" onClick={() => setCoverFile(null)}>
                     Sil
@@ -1630,23 +1633,15 @@ export default function EventsPage() {
                 </Stack>
               )}
               {!coverPreviewUrl && editingId && existingCoverUrl && (
-                <Stack sx={{ gap: 0.5 }}>
+                <Stack sx={{ gap: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     Bu etkinlikte aktif kapak mevcut.
                   </Typography>
-                  <Box
-                    component="img"
+                  <MediaDualPreview
                     src={existingCoverUrl}
                     alt="Mevcut kapak"
-                    onClick={() => openImagePreview(existingCoverUrl, 'Mevcut Kapak')}
-                    sx={{
-                      width: 96,
-                      height: 96,
-                      objectFit: 'cover',
-                      borderRadius: 1,
-                      border: (theme) => `1px solid ${theme.palette.divider}`,
-                      cursor: 'zoom-in'
-                    }}
+                    preset="eventHero"
+                    onOpen={openImagePreview}
                   />
                   <Button
                     size="small"
@@ -1685,59 +1680,44 @@ export default function EventsPage() {
                 </Typography>
               )}
               {galleryPreviewItems.length > 0 && (
-                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                <Stack sx={{ gap: 2 }}>
                   {galleryPreviewItems.map((item) => (
-                    <Box
+                    <MediaDualPreview
                       key={item.previewUrl}
-                      component="img"
                       src={item.previewUrl}
                       alt={item.name}
-                      title={item.name}
-                      onClick={() => openImagePreview(item.previewUrl, item.name)}
-                      sx={{
-                        width: 72,
-                        height: 72,
-                        objectFit: 'cover',
-                        borderRadius: 1,
-                        border: (theme) => `1px solid ${theme.palette.divider}`,
-                        cursor: 'zoom-in'
-                      }}
+                      preset="eventGallery"
+                      scale={0.85}
+                      onOpen={openImagePreview}
                     />
                   ))}
                 </Stack>
               )}
               {editingId && existingPhotos.length > 0 && (
-                <Stack sx={{ gap: 1 }}>
+                <Stack sx={{ gap: 2 }}>
                   <Typography variant="body2">Mevcut Galeri</Typography>
                   {existingPhotos.map((photo) => {
                     const photoUrl = resolvePhotoUrl(photo);
 
                     return (
-                      <Stack key={photo.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
-                          {photoUrl ? (
-                            <Box
-                              component="img"
-                              src={photoUrl}
-                              alt={photo.imageKey || `Foto ${photo.id}`}
-                              onClick={() => openImagePreview(photoUrl, photo.imageKey || `Foto ${photo.id}`)}
-                              sx={{
-                                width: 56,
-                                height: 56,
-                                objectFit: 'cover',
-                                borderRadius: 1,
-                                border: (theme) => `1px solid ${theme.palette.divider}`,
-                                cursor: 'zoom-in'
-                              }}
-                            />
-                          ) : null}
+                      <Stack key={photo.id} sx={{ gap: 1 }}>
+                        {photoUrl ? (
+                          <MediaDualPreview
+                            src={photoUrl}
+                            alt={photo.imageKey || `Foto ${photo.id}`}
+                            preset="eventGallery"
+                            scale={0.85}
+                            onOpen={openImagePreview}
+                          />
+                        ) : null}
+                        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                           <Typography variant="body2">
                             #{photo.sortOrder ?? '-'} - {photo.imageKey || photo.id}
                           </Typography>
+                          <Button size="small" color="error" onClick={() => onDeletePhoto(photo.id)}>
+                            Sil
+                          </Button>
                         </Stack>
-                        <Button size="small" color="error" onClick={() => onDeletePhoto(photo.id)}>
-                          Sil
-                        </Button>
                       </Stack>
                     );
                   })}
@@ -1765,61 +1745,42 @@ export default function EventsPage() {
                 </Typography>
               )}
               {sponsorPreviewItems.length > 0 && (
-                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                <Stack sx={{ gap: 2 }}>
                   {sponsorPreviewItems.map((item) => (
-                    <Box
+                    <MediaDualPreview
                       key={item.previewUrl}
-                      component="img"
                       src={item.previewUrl}
                       alt={item.name}
-                      title={item.name}
-                      onClick={() => openImagePreview(item.previewUrl, item.name)}
-                      sx={{
-                        width: 120,
-                        height: 40,
-                        objectFit: 'contain',
-                        borderRadius: 1,
-                        border: (theme) => `1px solid ${theme.palette.divider}`,
-                        cursor: 'zoom-in',
-                        bgcolor: 'grey.50'
-                      }}
+                      preset="eventSponsor"
+                      onOpen={openImagePreview}
                     />
                   ))}
                 </Stack>
               )}
               {editingId && existingSponsors.length > 0 && (
-                <Stack sx={{ gap: 1 }}>
+                <Stack sx={{ gap: 2 }}>
                   <Typography variant="body2">Mevcut Sponsorlar</Typography>
                   {existingSponsors.map((sponsor) => {
                     const sponsorUrl = resolvePhotoUrl(sponsor);
 
                     return (
-                      <Stack key={sponsor.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
-                          {sponsorUrl ? (
-                            <Box
-                              component="img"
-                              src={sponsorUrl}
-                              alt={sponsor.imageKey || `Sponsor ${sponsor.id}`}
-                              onClick={() => openImagePreview(sponsorUrl, sponsor.imageKey || `Sponsor ${sponsor.id}`)}
-                              sx={{
-                                width: 100,
-                                height: 36,
-                                objectFit: 'contain',
-                                borderRadius: 1,
-                                border: (theme) => `1px solid ${theme.palette.divider}`,
-                                cursor: 'zoom-in',
-                                bgcolor: 'grey.50'
-                              }}
-                            />
-                          ) : null}
+                      <Stack key={sponsor.id} sx={{ gap: 1 }}>
+                        {sponsorUrl ? (
+                          <MediaDualPreview
+                            src={sponsorUrl}
+                            alt={sponsor.imageKey || `Sponsor ${sponsor.id}`}
+                            preset="eventSponsor"
+                            onOpen={openImagePreview}
+                          />
+                        ) : null}
+                        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                           <Typography variant="body2">
                             #{sponsor.sortOrder ?? '-'} - {sponsor.imageKey || sponsor.id}
                           </Typography>
+                          <Button size="small" color="error" onClick={() => onDeleteSponsor(sponsor.id)}>
+                            Sil
+                          </Button>
                         </Stack>
-                        <Button size="small" color="error" onClick={() => onDeleteSponsor(sponsor.id)}>
-                          Sil
-                        </Button>
                       </Stack>
                     );
                   })}
@@ -1844,20 +1805,12 @@ export default function EventsPage() {
                 </Alert>
               ))}
               {bannerPreviewUrl && (
-                <Stack sx={{ gap: 0.5, alignItems: 'flex-start' }}>
-                  <Box
-                    component="img"
+                <Stack sx={{ gap: 1, alignItems: 'flex-start' }}>
+                  <MediaDualPreview
                     src={bannerPreviewUrl}
                     alt="Banner önizleme"
-                    onClick={() => openImagePreview(bannerPreviewUrl, 'Banner Onizleme')}
-                    sx={{
-                      width: 140,
-                      height: 80,
-                      objectFit: 'cover',
-                      borderRadius: 1,
-                      border: (theme) => `1px solid ${theme.palette.divider}`,
-                      cursor: 'zoom-in'
-                    }}
+                    preset="eventHero"
+                    onOpen={openImagePreview}
                   />
                   <Button size="small" color="error" onClick={() => setBannerFile(null)}>
                     Sil
@@ -1865,23 +1818,15 @@ export default function EventsPage() {
                 </Stack>
               )}
               {editingId && existingBannerUrl && (
-                <Stack sx={{ gap: 0.5 }}>
+                <Stack sx={{ gap: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     Bu etkinlikte aktif banner mevcut.
                   </Typography>
-                  <Box
-                    component="img"
+                  <MediaDualPreview
                     src={existingBannerUrl}
                     alt="Mevcut banner"
-                    onClick={() => openImagePreview(existingBannerUrl, 'Mevcut Banner')}
-                    sx={{
-                      width: 140,
-                      height: 80,
-                      objectFit: 'cover',
-                      borderRadius: 1,
-                      border: (theme) => `1px solid ${theme.palette.divider}`,
-                      cursor: 'zoom-in'
-                    }}
+                    preset="eventHero"
+                    onOpen={openImagePreview}
                   />
                   <Button
                     size="small"
@@ -1910,17 +1855,62 @@ export default function EventsPage() {
               helperText="Küçük numara listede önce görünür."
               inputProps={{ min: 0 }}
             />
-            <TextField
-              label="Video URL (opsiyonel)"
-              value={form.videoUrl}
-              onChange={(event) => setForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
-              {...lengthFieldProps(
-                form.videoUrl,
-                FIELD_LIMITS.event.videoUrl,
-                'YouTube, Vimeo veya doğrudan https video linki.'
-              )}
-              fullWidth
-            />
+            <Stack sx={{ gap: 1 }}>
+              <TextField
+                label="Video URL (opsiyonel)"
+                value={form.videoUrl}
+                onChange={(event) => setForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
+                {...lengthFieldProps(
+                  form.videoUrl,
+                  FIELD_LIMITS.event.videoUrl,
+                  'YouTube, Vimeo veya doğrudan https video linki. Dosya yüklerseniz bu alan otomatik dolar.'
+                )}
+                fullWidth
+              />
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Alternatif: <strong>mp4 / webm / mov</strong> yükleyin (en fazla 80 MB). Web’de YouTube linki gibi aynı
+                oynatıcıda açılır.
+              </Alert>
+              <Button variant="outlined" component="label">
+                {videoFile ? `Seçildi: ${videoFile.name}` : 'Video Dosyası Seç'}
+                <input
+                  type="file"
+                  hidden
+                  accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    event.target.value = '';
+                    setVideoFile(file);
+                    if (file) {
+                      setForm((prev) => ({ ...prev, videoUrl: '' }));
+                    }
+                  }}
+                />
+              </Button>
+              {videoFile ? (
+                <Button size="small" color="error" sx={{ alignSelf: 'flex-start' }} onClick={() => setVideoFile(null)}>
+                  Dosya seçimini kaldır
+                </Button>
+              ) : null}
+              {editingId && form.videoUrl && !videoFile ? (
+                <Button
+                  size="small"
+                  color="error"
+                  sx={{ alignSelf: 'flex-start' }}
+                  onClick={async () => {
+                    try {
+                      setActionError('');
+                      const updated = await deleteEventVideo(editingId);
+                      setForm((prev) => ({ ...prev, videoUrl: updated?.videoUrl || '' }));
+                    } catch (requestError) {
+                      setActionError(getRequestErrorMessage(requestError));
+                    }
+                  }}
+                >
+                  Videoyu Sil
+                </Button>
+              ) : null}
+            </Stack>
             <TextField
               select
               label="Organizatör (opsiyonel)"
@@ -1964,22 +1954,12 @@ export default function EventsPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={imagePreview.open} onClose={closeImagePreview} fullWidth maxWidth="md">
-        <DialogTitle>{imagePreview.title || 'Gorsel Onizleme'}</DialogTitle>
-        <DialogContent>
-          {imagePreview.url ? (
-            <Box
-              component="img"
-              src={imagePreview.url}
-              alt={imagePreview.title || 'Gorsel Onizleme'}
-              sx={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 1 }}
-            />
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeImagePreview}>Kapat</Button>
-        </DialogActions>
-      </Dialog>
+      <MediaLightbox
+        open={imagePreview.open}
+        url={imagePreview.url}
+        title={imagePreview.title}
+        onClose={closeImagePreview}
+      />
 
       <Dialog open={opsDialogOpen} onClose={() => setOpsDialogOpen(false)} fullWidth maxWidth="lg">
         <DialogTitle>Seans ve Bilet Tipleri - {opsEventTitle}</DialogTitle>

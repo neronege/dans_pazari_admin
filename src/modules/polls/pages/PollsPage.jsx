@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -26,15 +26,31 @@ import MainCard from 'components/MainCard';
 import {
   createPoll,
   deletePoll,
+  deletePollImage,
   getPollDetail,
   publishPoll,
   setPollHomepage,
   unpublishPoll,
-  updatePoll
+  updatePoll,
+  uploadPollImage
 } from 'modules/polls/api/polls.service';
 import usePolls from 'modules/polls/hooks/usePolls';
+import { POLL_IMAGE, validatePollImageFile } from 'modules/polls/utils/pollImageConstraints';
 import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
+import { MediaDualPreview, MediaLightbox } from 'shared/media';
 import { clearFieldError, getFieldError } from 'shared/ui/fieldErrors';
+
+const CUSTOM_OPTION_PLACEHOLDER = 'Seçenek sunan-seçenek';
+
+const EMPTY_OPTIONS = [
+  { text: '', allowsCustomText: false },
+  { text: '', allowsCustomText: false },
+  { text: '', allowsCustomText: true }
+];
+
+function createEmptyOptions() {
+  return EMPTY_OPTIONS.map((item) => ({ ...item }));
+}
 
 const EMPTY_FORM = {
   title: '',
@@ -43,7 +59,7 @@ const EMPTY_FORM = {
   showOnHomepage: false,
   isPublished: false,
   sortOrder: 0,
-  options: ['', '']
+  options: createEmptyOptions()
 };
 
 function toDateTimeLocal(value) {
@@ -89,13 +105,41 @@ export default function PollsPage() {
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
   const [formErrors, setFormErrors] = useState({});
+  const [imageFile, setImageFile] = useState(null);
+  const [existingImageUrl, setExistingImageUrl] = useState('');
+  const [imageWarning, setImageWarning] = useState('');
+  const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
+
+  const imagePreviewUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : ''), [imageFile]);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [imagePreviewUrl]);
+
+  const openImagePreview = (url, title) => {
+    if (!url) return;
+    setImagePreview({ open: true, url, title: title || 'Anket Görseli' });
+  };
+
+  const closeImagePreview = () => {
+    setImagePreview({ open: false, url: '', title: '' });
+  };
+
+  const resetImageState = () => {
+    setImageFile(null);
+    setExistingImageUrl('');
+    setImageWarning('');
+  };
 
   const openCreate = () => {
     setEditingId(null);
     setOptionIds([]);
-    setForm({ ...EMPTY_FORM, options: ['', ''] });
+    setForm({ ...EMPTY_FORM, options: createEmptyOptions() });
     setActionError('');
     setFormErrors({});
+    resetImageState();
     setDialogOpen(true);
   };
 
@@ -113,10 +157,51 @@ export default function PollsPage() {
         showOnHomepage: Boolean(detail?.showOnHomepage),
         isPublished: Boolean(detail?.isPublished),
         sortOrder: Number.isFinite(detail?.sortOrder) ? detail.sortOrder : 0,
-        options: options.length >= 2 ? options.map((item) => item.text || '') : ['', '']
+        options:
+          options.length >= 2
+            ? options.map((item) => ({
+                text: item.text || '',
+                allowsCustomText: Boolean(item.allowsCustomText),
+                customTexts: Array.isArray(item.customTexts) ? item.customTexts : []
+              }))
+            : createEmptyOptions()
       });
+      setImageFile(null);
+      setExistingImageUrl(detail?.imageUrl || '');
+      setImageWarning('');
       setFormErrors({});
       setDialogOpen(true);
+    } catch (requestError) {
+      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+    }
+  };
+
+  const onPickImage = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const result = await validatePollImageFile(file);
+      if (!result.ok) {
+        setActionError(result.error || 'Görsel geçersiz.');
+        return;
+      }
+      setActionError('');
+      setImageWarning(result.warning || '');
+      setImageFile(file);
+    } catch {
+      setActionError('Görsel okunamadı.');
+    }
+  };
+
+  const onDeleteExistingImage = async () => {
+    if (!editingId) return;
+    try {
+      setActionError('');
+      await deletePollImage(editingId);
+      setExistingImageUrl('');
+      setImageFile(null);
     } catch (requestError) {
       setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
     }
@@ -130,14 +215,24 @@ export default function PollsPage() {
   const setOptionText = (index, value) => {
     setForm((prev) => ({
       ...prev,
-      options: prev.options.map((item, i) => (i === index ? value : item))
+      options: prev.options.map((item, i) => (i === index ? { ...item, text: value } : item))
     }));
     setFormErrors((prev) => clearFieldError(prev, 'options'));
   };
 
+  const setOptionCustom = (index, checked) => {
+    setForm((prev) => ({
+      ...prev,
+      options: prev.options.map((item, i) => ({
+        ...item,
+        allowsCustomText: i === index ? checked : checked ? false : item.allowsCustomText
+      }))
+    }));
+  };
+
   const addOption = () => {
     if (form.options.length >= 12) return;
-    setForm((prev) => ({ ...prev, options: [...prev.options, ''] }));
+    setForm((prev) => ({ ...prev, options: [...prev.options, { text: '', allowsCustomText: false }] }));
     setOptionIds((prev) => [...prev, null]);
   };
 
@@ -159,7 +254,9 @@ export default function PollsPage() {
       nextErrors.endsAtLocal = 'Bitiş tarihi başlangıçtan sonra olmalıdır.';
     }
 
-    const filled = form.options.map((item) => String(item || '').trim()).filter(Boolean);
+    const filled = form.options
+      .map((item) => String(item?.text || '').trim() || (item?.allowsCustomText ? CUSTOM_OPTION_PLACEHOLDER : ''))
+      .filter(Boolean);
     if (filled.length < 2) nextErrors.options = 'En az iki seçenek zorunludur.';
 
     return nextErrors;
@@ -177,11 +274,16 @@ export default function PollsPage() {
     setFormErrors({});
 
     const options = form.options
-      .map((text, index) => ({
-        id: optionIds[index] || undefined,
-        text: String(text || '').trim(),
-        sortOrder: index
-      }))
+      .map((item, index) => {
+        const allowsCustomText = Boolean(item?.allowsCustomText);
+        const text = String(item?.text || '').trim() || (allowsCustomText ? CUSTOM_OPTION_PLACEHOLDER : '');
+        return {
+          id: optionIds[index] || undefined,
+          text,
+          sortOrder: index,
+          allowsCustomText
+        };
+      })
       .filter((item) => item.text);
 
     const payload = {
@@ -202,10 +304,17 @@ export default function PollsPage() {
         } else {
           await unpublishPoll(editingId);
         }
+        if (imageFile) {
+          await uploadPollImage(editingId, imageFile);
+        }
       } else {
-        await createPoll(payload);
+        const created = await createPoll(payload);
+        if (imageFile && created?.id) {
+          await uploadPollImage(created.id, imageFile);
+        }
       }
       setDialogOpen(false);
+      resetImageState();
       await refresh();
     } catch (requestError) {
       const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
@@ -371,6 +480,51 @@ export default function PollsPage() {
               helperText={getFieldError(formErrors, 'title')}
             />
 
+            <Stack sx={{ gap: 1 }}>
+              <Typography variant="subtitle2">Anket Fotoğrafı (opsiyonel)</Typography>
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Web’te başlığın hemen üstünde görünür. Önerilen oran ~16:9 (ör.{' '}
+                <strong>
+                  {POLL_IMAGE.targetWidth}×{POLL_IMAGE.targetHeight}px
+                </strong>
+                ).
+              </Alert>
+              <Button variant="outlined" component="label">
+                {imageFile ? `Seçildi: ${imageFile.name}` : 'Fotoğraf Seç'}
+                <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={onPickImage} />
+              </Button>
+              {imageWarning ? <Alert severity="warning">{imageWarning}</Alert> : null}
+              {imagePreviewUrl ? (
+                <Stack sx={{ gap: 1 }}>
+                  <MediaDualPreview
+                    src={imagePreviewUrl}
+                    alt="Anket fotoğrafı"
+                    preset="poll"
+                    onOpen={openImagePreview}
+                  />
+                  <Button size="small" color="error" sx={{ alignSelf: 'flex-start' }} onClick={() => setImageFile(null)}>
+                    Seçimi Kaldır
+                  </Button>
+                </Stack>
+              ) : null}
+              {!imagePreviewUrl && existingImageUrl ? (
+                <Stack sx={{ gap: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Mevcut anket fotoğrafı
+                  </Typography>
+                  <MediaDualPreview
+                    src={existingImageUrl}
+                    alt="Mevcut anket fotoğrafı"
+                    preset="poll"
+                    onOpen={openImagePreview}
+                  />
+                  <Button size="small" color="error" sx={{ alignSelf: 'flex-start' }} onClick={onDeleteExistingImage}>
+                    Fotoğrafı Sil
+                  </Button>
+                </Stack>
+              ) : null}
+            </Stack>
+
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2 }}>
               <TextField
                 label="Başlangıç"
@@ -402,20 +556,38 @@ export default function PollsPage() {
                 <Alert severity="error">{getFieldError(formErrors, 'options')}</Alert>
               ) : null}
               {form.options.map((option, index) => (
-                <Stack key={`${optionIds[index] || 'new'}-${index}`} direction="row" sx={{ gap: 1 }} alignItems="center">
-                  <TextField
-                    label={`Seçenek ${index + 1}`}
-                    value={option}
-                    onChange={(event) => setOptionText(index, event.target.value)}
-                    fullWidth
+                <Stack key={`${optionIds[index] || 'new'}-${index}`} sx={{ gap: 0.5 }}>
+                  <Stack direction="row" sx={{ gap: 1 }} alignItems="center">
+                    <TextField
+                      label={`Seçenek ${index + 1}`}
+                      placeholder={option.allowsCustomText ? CUSTOM_OPTION_PLACEHOLDER : ''}
+                      value={option.text || ''}
+                      onChange={(event) => setOptionText(index, event.target.value)}
+                      fullWidth
+                    />
+                    <IconButton
+                      aria-label="Seçeneği sil"
+                      onClick={() => removeOption(index)}
+                      disabled={form.options.length <= 2}
+                    >
+                      <DeleteOutlined />
+                    </IconButton>
+                  </Stack>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={Boolean(option.allowsCustomText)}
+                        onChange={(event) => setOptionCustom(index, event.target.checked)}
+                      />
+                    }
+                    label="Kullanıcı kendi seçeneğini yazabilsin"
                   />
-                  <IconButton
-                    aria-label="Seçeneği sil"
-                    onClick={() => removeOption(index)}
-                    disabled={form.options.length <= 2}
-                  >
-                    <DeleteOutlined />
-                  </IconButton>
+                  {option.allowsCustomText && Array.isArray(option.customTexts) && option.customTexts.length > 0 ? (
+                    <Alert severity="info">
+                      Kullanıcı yanıtları: {option.customTexts.join(' · ')}
+                    </Alert>
+                  ) : null}
                 </Stack>
               ))}
               <Button
@@ -456,6 +628,13 @@ export default function PollsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <MediaLightbox
+        open={imagePreview.open}
+        url={imagePreview.url}
+        title={imagePreview.title}
+        onClose={closeImagePreview}
+      />
     </>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -27,13 +27,16 @@ import {
   createVenue,
   deleteVenue,
   deleteVenuePhoto,
+  deleteVenueVideo,
   getVenueDetail,
   updateVenue,
-  updateVenueActive
+  updateVenueActive,
+  uploadVenueVideo
 } from 'modules/venues/api/venues.service';
 import { validateVenueImageFile, VENUE_IMAGE } from 'modules/venues/utils/venueImageConstraints';
 import useVenueGoogleMap from 'modules/venues/hooks/useVenueGoogleMap';
 import { getHumanReadableError, getProblemFieldErrors } from 'shared/api';
+import { MediaDualPreview, MediaLightbox } from 'shared/media';
 import {
   buildTranslationsPayload,
   createEmptyTranslations,
@@ -79,6 +82,28 @@ export default function VenuesPage() {
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [photoWarnings, setPhotoWarnings] = useState([]);
+  const [videoFile, setVideoFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
+
+  const selectedPhotoPreviews = useMemo(
+    () => selectedPhotos.map((file) => ({ name: file.name, url: URL.createObjectURL(file) })),
+    [selectedPhotos]
+  );
+
+  useEffect(() => {
+    return () => {
+      selectedPhotoPreviews.forEach((item) => URL.revokeObjectURL(item.url));
+    };
+  }, [selectedPhotoPreviews]);
+
+  const openImagePreview = (url, title) => {
+    if (!url) return;
+    setImagePreview({ open: true, url, title: title || 'Görsel Önizleme' });
+  };
+
+  const closeImagePreview = () => {
+    setImagePreview({ open: false, url: '', title: '' });
+  };
 
   const { mapContainerRef, addressInputRef, mapError, searchByAddress } = useVenueGoogleMap({
     enabled: dialogOpen,
@@ -108,6 +133,7 @@ export default function VenuesPage() {
     setLocaleTab('tr');
     setSelectedPhotos([]);
     setExistingPhotos([]);
+    setVideoFile(null);
     setActionError('');
     setPhotoWarnings([]);
     setFormErrors({});
@@ -141,6 +167,7 @@ export default function VenuesPage() {
       setLocaleTab('tr');
       setSelectedPhotos([]);
       setExistingPhotos(Array.isArray(detail?.photos) ? detail.photos : []);
+      setVideoFile(null);
       setPhotoWarnings([]);
       setFormErrors({});
       if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
@@ -298,15 +325,22 @@ export default function VenuesPage() {
     };
 
     try {
+      let targetVenueId = editingId;
       if (editingId) {
         await updateVenue(editingId, payload, selectedPhotos);
       } else {
-        await createVenue(payload, selectedPhotos);
+        const created = await createVenue(payload, selectedPhotos);
+        targetVenueId = created?.id || null;
+      }
+
+      if (videoFile && targetVenueId) {
+        await uploadVenueVideo(targetVenueId, videoFile);
       }
 
       closeDialog();
       setSelectedPhotos([]);
       setExistingPhotos([]);
+      setVideoFile(null);
       await refresh();
     } catch (requestError) {
       const apiFieldErrors = getProblemFieldErrors(requestError?.problem, {
@@ -601,47 +635,49 @@ export default function VenuesPage() {
               ))}
 
               {selectedPhotos.length > 0 && (
-                <Stack sx={{ gap: 1 }}>
-                  {selectedPhotos.map((file, index) => (
-                    <Stack key={`${file.name}-${index}`} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2">{file.name}</Typography>
-                      <Button size="small" color="error" onClick={() => removeSelectedPhoto(index)}>
-                        Kaldır
-                      </Button>
+                <Stack sx={{ gap: 2 }}>
+                  {selectedPhotoPreviews.map((item, index) => (
+                    <Stack key={item.url} sx={{ gap: 1 }}>
+                      <MediaDualPreview
+                        src={item.url}
+                        alt={item.name}
+                        preset="venue"
+                        onOpen={openImagePreview}
+                      />
+                      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2">{item.name}</Typography>
+                        <Button size="small" color="error" onClick={() => removeSelectedPhoto(index)}>
+                          Kaldır
+                        </Button>
+                      </Stack>
                     </Stack>
                   ))}
                 </Stack>
               )}
 
               {editingId && existingPhotos.length > 0 && (
-                <Stack sx={{ gap: 1 }}>
+                <Stack sx={{ gap: 2 }}>
                   <Typography variant="body2">Mevcut Fotoğraflar</Typography>
                   {existingPhotos.map((photo) => {
                     const photoUrl = photo.imageUrl || photo.url || '';
                     return (
-                      <Stack key={photo.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
-                          {photoUrl ? (
-                            <Box
-                              component="img"
-                              src={photoUrl}
-                              alt={photo.imageKey || photo.id}
-                              sx={{
-                                width: 56,
-                                height: 56,
-                                objectFit: 'cover',
-                                borderRadius: 1,
-                                border: (theme) => `1px solid ${theme.palette.divider}`
-                              }}
-                            />
-                          ) : null}
+                      <Stack key={photo.id} sx={{ gap: 1 }}>
+                        {photoUrl ? (
+                          <MediaDualPreview
+                            src={photoUrl}
+                            alt={photo.imageKey || photo.id}
+                            preset="venue"
+                            onOpen={openImagePreview}
+                          />
+                        ) : null}
+                        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                           <Typography variant="body2">
                             #{photo.sortOrder ?? '-'} - {photo.imageKey || photo.id}
                           </Typography>
+                          <Button size="small" color="error" onClick={() => removeExistingPhoto(photo.id)}>
+                            Sil
+                          </Button>
                         </Stack>
-                        <Button size="small" color="error" onClick={() => removeExistingPhoto(photo.id)}>
-                          Sil
-                        </Button>
                       </Stack>
                     );
                   })}
@@ -660,17 +696,61 @@ export default function VenuesPage() {
               value={form.capacity}
               onChange={(event) => setForm((prev) => ({ ...prev, capacity: event.target.value }))}
             />
-            <TextField
-              label="Video URL (opsiyonel)"
-              value={form.videoUrl}
-              onChange={(event) => setForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
-              {...lengthFieldProps(
-                form.videoUrl,
-                FIELD_LIMITS.venue.videoUrl,
-                'YouTube, Vimeo veya doğrudan https video linki.'
-              )}
-              fullWidth
-            />
+            <Stack sx={{ gap: 1 }}>
+              <TextField
+                label="Video URL (opsiyonel)"
+                value={form.videoUrl}
+                onChange={(event) => setForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
+                {...lengthFieldProps(
+                  form.videoUrl,
+                  FIELD_LIMITS.venue.videoUrl,
+                  'YouTube, Vimeo veya doğrudan https video linki. Dosya yüklerseniz bu alan otomatik dolar.'
+                )}
+                fullWidth
+              />
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Alternatif: <strong>mp4 / webm / mov</strong> yükleyin (en fazla 80 MB). Web’de aynı oynatıcı kullanılır.
+              </Alert>
+              <Button variant="outlined" component="label">
+                {videoFile ? `Seçildi: ${videoFile.name}` : 'Video Dosyası Seç'}
+                <input
+                  type="file"
+                  hidden
+                  accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    event.target.value = '';
+                    setVideoFile(file);
+                    if (file) {
+                      setForm((prev) => ({ ...prev, videoUrl: '' }));
+                    }
+                  }}
+                />
+              </Button>
+              {videoFile ? (
+                <Button size="small" color="error" sx={{ alignSelf: 'flex-start' }} onClick={() => setVideoFile(null)}>
+                  Dosya seçimini kaldır
+                </Button>
+              ) : null}
+              {editingId && form.videoUrl && !videoFile ? (
+                <Button
+                  size="small"
+                  color="error"
+                  sx={{ alignSelf: 'flex-start' }}
+                  onClick={async () => {
+                    try {
+                      setActionError('');
+                      const updated = await deleteVenueVideo(editingId);
+                      setForm((prev) => ({ ...prev, videoUrl: updated?.videoUrl || '' }));
+                    } catch (requestError) {
+                      setActionError(getHumanReadableError(requestError?.problem) || requestError?.message);
+                    }
+                  }}
+                >
+                  Videoyu Sil
+                </Button>
+              ) : null}
+            </Stack>
             <FormControlLabel
               control={
                 <Switch checked={form.isActive} onChange={(event) => setForm((prev) => ({ ...prev, isActive: event.target.checked }))} />
@@ -699,6 +779,13 @@ export default function VenuesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <MediaLightbox
+        open={imagePreview.open}
+        url={imagePreview.url}
+        title={imagePreview.title}
+        onClose={closeImagePreview}
+      />
     </>
   );
 }

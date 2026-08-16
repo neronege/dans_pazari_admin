@@ -116,6 +116,18 @@ export async function deleteEventBanner(eventId) {
   await httpClient.delete(endpoints.admin.events.banner(eventId));
 }
 
+export async function uploadEventVideo(eventId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await httpClient.post(endpoints.admin.events.video(eventId), formData);
+  return response.data;
+}
+
+export async function deleteEventVideo(eventId) {
+  const response = await httpClient.delete(endpoints.admin.events.video(eventId));
+  return response.data;
+}
+
 export async function createEventSession(eventId, payload) {
   const response = await httpClient.post(endpoints.admin.events.sessions(eventId), payload);
   return response.data;
