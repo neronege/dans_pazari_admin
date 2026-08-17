@@ -13,11 +13,15 @@ COPY --from=deps /app/package.json ./package.json
 COPY . .
 ARG NEXT_PUBLIC_API_BASE_URL=https://api.museticket.com
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
+ARG NEXT_PUBLIC_ADMIN_BUILD_ID=
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
-# yarn build lockfile'ı yeniden çözümler; next'i doğrudan çalıştır
-RUN ./node_modules/.bin/next build
+# Her image build’de benzersiz id — tarayıcıdaki admin oturumları düşer.
+RUN BUILD_ID="$NEXT_PUBLIC_ADMIN_BUILD_ID"; \
+    if [ -z "$BUILD_ID" ]; then BUILD_ID="$(date -u +%Y%m%d%H%M%S)-$RANDOM"; fi; \
+    echo "NEXT_PUBLIC_ADMIN_BUILD_ID=$BUILD_ID"; \
+    NEXT_PUBLIC_ADMIN_BUILD_ID="$BUILD_ID" ./node_modules/.bin/next build
 
 FROM node:22-alpine AS runner
 WORKDIR /app

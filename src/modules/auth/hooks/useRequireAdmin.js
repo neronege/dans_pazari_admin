@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { clearTokens, getAccessToken, getAccessTokenExpiryUtc } from 'shared/api';
+import { clearTokens, getAccessToken, getAccessTokenExpiryUtc, logoutIfAdminBuildChanged } from 'shared/api';
 import { decodeJwtPayload, isDoorStaffOnlyToken, isPanelAccessToken } from 'modules/auth/model/jwt';
 
 function isAccessTokenExpired(accessToken) {
@@ -39,7 +39,8 @@ export default function useRequireAdmin() {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    const accessToken = getAccessToken();
+    const loggedOutForBuild = logoutIfAdminBuildChanged();
+    const accessToken = loggedOutForBuild ? null : getAccessToken();
 
     if (!accessToken || isAccessTokenExpired(accessToken) || !isPanelAccessToken(accessToken)) {
       clearTokens();

@@ -2,9 +2,49 @@ const ACCESS_TOKEN_KEY = 'dp_admin_access_token';
 const REFRESH_TOKEN_KEY = 'dp_admin_refresh_token';
 const TOKEN_EXPIRY_KEY = 'dp_admin_access_token_expires_at_utc';
 const USER_KEY = 'dp_admin_user';
+const BUILD_ID_KEY = 'dp_admin_build_id';
 
 function isBrowser() {
   return typeof window !== 'undefined';
+}
+
+export function getAdminBuildId() {
+  return process.env.NEXT_PUBLIC_ADMIN_BUILD_ID || '';
+}
+
+function stampBuildId() {
+  const current = getAdminBuildId();
+  if (!isBrowser() || !current) {
+    return;
+  }
+
+  window.localStorage.setItem(BUILD_ID_KEY, current);
+}
+
+/** Yeni sunucu build’inde kayıtlı oturumu siler. */
+export function logoutIfAdminBuildChanged() {
+  if (!isBrowser()) {
+    return false;
+  }
+
+  const current = getAdminBuildId();
+  if (!current) {
+    return false;
+  }
+
+  const stored = window.localStorage.getItem(BUILD_ID_KEY);
+  if (!stored) {
+    stampBuildId();
+    return false;
+  }
+
+  if (stored === current) {
+    return false;
+  }
+
+  clearTokens();
+  stampBuildId();
+  return true;
 }
 
 export function getAccessToken() {
@@ -67,6 +107,8 @@ export function setTokens(tokens) {
   if (accessTokenExpiresAtUtc) {
     window.localStorage.setItem(TOKEN_EXPIRY_KEY, accessTokenExpiresAtUtc);
   }
+
+  stampBuildId();
 }
 
 export function setCurrentUser(user) {

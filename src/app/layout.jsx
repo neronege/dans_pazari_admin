@@ -11,6 +11,7 @@ import '@fontsource/public-sans/700.css';
 
 // project-imports
 import ProviderWrapper from './ProviderWrapper';
+import AdminBuildSessionGuard from 'modules/auth/components/AdminBuildSessionGuard';
 
 export const metadata = {
   title: 'Mantis Next.js Dashboard',
@@ -28,7 +29,10 @@ export default function RootLayout({ children }) {
         <link rel="stylesheet" href="/third-party/react-table.css" />
       </head>
       <body suppressHydrationWarning>
-        <ProviderWrapper>{children}</ProviderWrapper>
+        <ProviderWrapper>
+          <AdminBuildSessionGuard />
+          {children}
+        </ProviderWrapper>
       </body>
     </html>
   );
