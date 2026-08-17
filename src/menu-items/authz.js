@@ -26,7 +26,8 @@ export function canAccessItem(item, roles) {
     return true;
   }
 
-  return item.requiredRoles.some((role) => roles.includes(role));
+  const effectiveRoles = roles.includes('SuperAdmin') ? [...new Set([...roles, 'Admin'])] : roles;
+  return item.requiredRoles.some((role) => effectiveRoles.includes(role));
 }
 
 export function filterMenuByRoles(menuItems, roles) {

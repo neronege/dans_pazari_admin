@@ -23,7 +23,7 @@ Development: `/swagger` (Admin* tag’leri).
 
 ## Auth
 
-Admin paneli Identity üzerinden giriş yapar (ayrı `/auth/admin/login` yok). JWT `role` claim = `Admin` olmalı.
+Admin paneli Identity üzerinden giriş yapar (ayrı `/auth/admin/login` yok). JWT `role` claim = `SuperAdmin` veya `Admin` olmalı.
 
 ### `POST /auth/login`
 
@@ -34,16 +34,16 @@ Müşteri ile aynı endpoint (`frontend-icin-api-listesi.md` → Auth). Admin ku
   "tokens": { "accessToken": "...", "refreshToken": "...", "accessTokenExpiresAtUtc": "...", "refreshTokenExpiresAtUtc": "..." },
   "user": {
     "id": "...",
-    "email": "admin@biletplatform.local",
-    "firstName": "Platform",
+    "email": "superadmin@museticket.com",
+    "firstName": "Super",
     "lastName": "Admin",
-    "role": "Admin",
+    "role": "SuperAdmin",
     "emailConfirmed": true
   }
 }
 ```
 
-`user.role !== "Admin"` ise panel token’ı admin API’lere göndermemelidir (`403`). Seed (dev): `admin@biletplatform.local` / `Admin123!`.
+`user.role` paneli için `SuperAdmin`, `Admin` veya `DoorStaff` olmalı (`403`). Seed SuperAdmin: `superadmin@museticket.com` / `MtK9#vL2pQx7nR4!`.
 
 Yenileme / çıkış: `POST /auth/refresh`, `POST /auth/logout` (aynı müşteri sözleşmesi).
 

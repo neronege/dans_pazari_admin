@@ -9,7 +9,7 @@ function toAuthPayload(payload) {
 
 function assertPanelUser(user) {
   const role = user?.role;
-  if (role !== 'Admin' && role !== 'DoorStaff') {
+  if (role !== 'SuperAdmin' && role !== 'Admin' && role !== 'DoorStaff') {
     const error = new Error('Bu hesap panele erişemiyor.');
     error.code = 'forbidden_non_panel';
     throw error;

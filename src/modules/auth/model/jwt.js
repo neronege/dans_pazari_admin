@@ -43,18 +43,22 @@ export function getRolesFromAccessToken(token) {
   return getRolesFromPayload(decodeJwtPayload(token));
 }
 
+function isStaffAdminRole(role) {
+  return role === 'SuperAdmin' || role === 'Admin';
+}
+
 export function isAdminPayload(payload) {
-  return getRolesFromPayload(payload).includes('Admin');
+  return getRolesFromPayload(payload).some(isStaffAdminRole);
 }
 
 export function isDoorStaffPayload(payload) {
   return getRolesFromPayload(payload).includes('DoorStaff');
 }
 
-/** Admin paneline giriş: Admin veya DoorStaff */
+/** Admin paneline giriş: SuperAdmin, Admin veya DoorStaff */
 export function isPanelPayload(payload) {
   const roles = getRolesFromPayload(payload);
-  return roles.includes('Admin') || roles.includes('DoorStaff');
+  return roles.some(isStaffAdminRole) || roles.includes('DoorStaff');
 }
 
 export function isAdminAccessToken(token) {
@@ -67,5 +71,5 @@ export function isPanelAccessToken(token) {
 
 export function isDoorStaffOnlyToken(token) {
   const roles = getRolesFromAccessToken(token);
-  return roles.includes('DoorStaff') && !roles.includes('Admin');
+  return roles.includes('DoorStaff') && !roles.some(isStaffAdminRole);
 }
